@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consolidated Scope & Capacity Management - ACME</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .slide-in {
+            animation: slideIn 0.5s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // TypeScript interfaces (as comments for reference)
+        // interface Slide {
+        //     id: number;
+        //     title: string;
+        //     content: JSX.Element;
+        // }
+
+        const ScopeCapacityPresentation = () => {
+            const [currentSlide, setCurrentSlide] = useState(0);
+            const [isFullscreen, setIsFullscreen] = useState(false);
+            const presentationRef = useRef(null);
+
+            // Navigation functions
+            const nextSlide = () => {
+                if (currentSlide < slides.length - 1) {
+                    setCurrentSlide(currentSlide + 1);
+                }
+            };
+
+            const prevSlide = () => {
+                if (currentSlide > 0) {
+                    setCurrentSlide(currentSlide - 1);
+                }
+            };
+
+            const goToSlide = (index) => {
+                setCurrentSlide(index);
+            };
+
+            // Keyboard navigation
+            useEffect(() => {
+                const handleKeyPress = (e) => {
+                    if (e.key === 'ArrowRight' || e.key === ' ') {
+                        nextSlide();
+                    } else if (e.key === 'ArrowLeft') {
+                        prevSlide();
+                    } else if (e.key === 'Escape') {
+                        setIsFullscreen(false);
+                    } else if (e.key === 'f') {
+                        toggleFullscreen();
+                    }
+                };
+
+                window.addEventListener('keydown', handleKeyPress);
+                return () => window.removeEventListener('keydown', handleKeyPress);
+            }, [currentSlide]);
+
+            const toggleFullscreen = () => {
+                if (!isFullscreen) {
+                    if (presentationRef.current.requestFullscreen) {
+                        presentationRef.current.requestFullscreen();
+                    }
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    }
+                }
+                setIsFullscreen(!isFullscreen);
+            };
+
+            // Slide Components
+            const Slide1 = () => (
+                <div className="h-full flex flex-col justify-center items-center bg-white relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-700 to-blue-500"></div>
+                    <div className="text-center px-8 slide-in">
+                        <h1 className="text-5xl lg:text-6xl font-bold text-blue-800 mb-6">
+                            Consolidated Scope & Capacity Management
+                        </h1>
+                        <p className="text-2xl text-gray-600 mb-8">
+                            Bringing Visibility and Control to Technology Delivery
+                        </p>
+                        <p className="text-lg text-gray-500 italic">
+                            Technology Organization Transformation
+                        </p>
+                    </div>
+                    <div className="absolute bottom-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+                </div>
+            );
+
+            const Slide2 = () => (
+                <div className="h-full bg-white p-8">
+                    <h2 className="text-4xl font-bold text-blue-800 mb-4">The Current Challenge</h2>
+                    <p className="text-xl text-gray-600 mb-8">What We Discovered Through Stakeholder Interviews</p>
+                    
+                    <div className="grid grid-cols-3 gap-4 h-3/4">
+                        <div className="col-span-2">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-blue-300 rounded-lg p-4 text-white text-center fade-in">
+                                    <h3 className="font-bold text-lg mb-2">Trading Squad</h3>
+                                    <p className="text-sm">Own Roadmap</p>
+                                    <p className="text-sm">Own Backlog</p>
+                                </div>
+                                <div className="bg-green-400 rounded-lg p-4 text-white text-center fade-in" style={{animationDelay: '0.1s'}}>
+                                    <h3 className="font-bold text-lg mb-2">Compliance Squad</h3>
+                                    <p className="text-sm">Own Roadmap</p>
+                                    <p className="text-sm">Own Backlog</p>
+                                </div>
+                                <div className="bg-orange-400 rounded-lg p-4 text-white text-center fade-in" style={{animationDelay: '0.2s'}}>
+                                    <h3 className="font-bold text-lg mb-2">Equity PM Squad</h3>
+                                    <p className="text-sm">Own Roadmap</p>
+                                    <p className="text-sm">Own Backlog</p>
+                                </div>
+                                <div className="bg-purple-500 rounded-lg p-4 text-white text-center fade-in" style={{animationDelay: '0.3s'}}>
+                                    <h3 className="font-bold text-lg mb-2">Data Squad</h3>
+                                    <p className="text-sm">Own Roadmap</p>
+                                    <p className="text-sm">Own Backlog</p>
+                                </div>
+                            </div>
+                            <div className="flex justify-center mt-8">
+                                <span className="text-6xl text-red-500">❌</span>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-red-50 border-2 border-red-400 rounded-lg p-6 fade-in" style={{animationDelay: '0.4s'}}>
+                            <h3 className="text-xl font-bold text-red-600 mb-4 text-center">No Consolidated View</h3>
+                            <ul className="space-y-3 text-gray-700">
+                                <li className="flex items-start">
+                                    <span className="text-red-500 mr-2">•</span>
+                                    <span>CTO lacks visibility into all technology initiatives</span>
+                                </li>
+                                <li className="flex items-start">
+                                    <span className="text-red-500 mr-2">•</span>
+                                    <span>Resource allocation decisions made in silos</span>
+                                </li>
+                                <li className="flex items-start">
+                                    <span className="text-red-500 mr-2">•</span>
+                                    <span>No unified capacity planning</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const Slide3 = () => (
+                <div className="h-full bg-gray-50 p-8">
+                    <h2 className="text-4xl font-bold text-blue-800 mb-8">The Impact: By the Numbers</h2>
+                    
+                    <div className="grid grid-cols-4 gap-6 mb-8">
+                        <div className="bg-white rounded-lg border-2 border-blue-600 p-6 text-center slide-in">
+                            <div className="text-4xl font-bold text-blue-600 mb-2">140</div>
+                            <div className="text-sm text-gray-600">Total Technology Staff</div>
+                        </div>
+                        <div className="bg-white rounded-lg border-2 border-orange-600 p-6 text-center slide-in" style={{animationDelay: '0.1s'}}>
+                            <div className="text-4xl font-bold text-orange-600 mb-2">~24</div>
+                            <div className="text-sm text-gray-600">Executing Developers</div>
+                        </div>
+                        <div className="bg-white rounded-lg border-2 border-green-600 p-6 text-center slide-in" style={{animationDelay: '0.2s'}}>
+                            <div className="text-4xl font-bold text-green-600 mb-2">8</div>
+                            <div className="text-sm text-gray-600">Delivery Squads</div>
+                        </div>
+                        <div className="bg-white rounded-lg border-2 border-red-600 p-6 text-center slide-in" style={{animationDelay: '0.3s'}}>
+                            <div className="text-4xl font-bold text-red-600 mb-2">4-5</div>
+                            <div className="text-sm text-gray-600">Months Unplanned Work</div>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-white rounded-lg p-6">
+                        <ul className="space-y-3 text-gray-700">
+                            <li className="flex items-start fade-in" style={{animationDelay: '0.4s'}}>
+                                <span className="text-blue-500 mr-3 text-xl">•</span>
+                                <span>Squads struggling to balance BAU work with strategic initiatives (CRD, Cloud Migration)</span>
+                            </li>
+                            <li className="flex items-start fade-in" style={{animationDelay: '0.5s'}}>
+                                <span className="text-blue-500 mr-3 text-xl">•</span>
+                                <span>DevOps and Data teams becoming bottlenecks due to unclear demand</span>
+                            </li>
+                            <li className="flex items-start fade-in" style={{animationDelay: '0.6s'}}>
+                                <span className="text-blue-500 mr-3 text-xl">•</span>
+                                <span>Different sprint cadences across teams (2 vs 3 weeks)</span>
+                            </li>
+                            <li className="flex items-start fade-in" style={{animationDelay: '0.7s'}}>
+                                <span className="text-blue-500 mr-3 text-xl">•</span>
+                                <span>No unified view of capacity or resource allocation</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            );
+
+            const Slide4 = () => (
+                <div className="h-full bg-white p-8">
+                    <h2 className="text-4xl font-bold text-blue-800 mb-4">Why Consolidated Scope Management?</h2>
+                    <p className="text-xl text-gray-600 mb-8">The Foundation for Effective Technology Delivery</p>
+                    
+                    <div className="grid grid-cols-3 gap-6">
+                        {[
+                            { icon: "👁️", title: "Complete Visibility", desc: "See ALL technology initiatives in one place" },
+                            { icon: "⚡", title: "Resource Optimization", desc: "Identify over/under allocation across teams" },
+                            { icon: "🔗", title: "Dependency Management", desc: "Track cross-team dependencies and bottlenecks" },
+                            { icon: "🎯", title: "Strategic Alignment", desc: "Ensure resources align with business priorities" },
+                            { icon: "📊", title: "Proactive Planning", desc: "Forecast capacity needs before crises emerge" },
+                            { icon: "🛡️", title: "Risk Mitigation", desc: "Identify delivery risks early and adjust" }
+                        ].map((item, i) => (
+                            <div key={i} className="bg-blue-50 rounded-lg p-4 hover:shadow-lg transition-shadow fade-in" style={{animationDelay: `${i * 0.1}s`}}>
+                                <div className="flex items-start">
+                                    <span className="text-3xl mr-3">{item.icon}</span>
+                                    <div>
+                                        <h3 className="font-bold text-blue-700 mb-1">{item.title}</h3>
+                                        <p className="text-sm text-gray-600">{item.desc}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            const Slide5 = () => (
+                <div className="h-full bg-white p-8">
+                    <h2 className="text-4xl font-bold text-blue-800 mb-8">The Solution: Three-Phase Approach</h2>
+                    
+                    <div className="grid grid-cols-3 gap-8">
+                        {[
+                            {
+                                phase: "1",
+                                title: "Scope Consolidation",
+                                items: ["Catalog ALL initiatives", "Document every backlog item", "Identify dependencies"],
+                                color: "blue"
+                            },
+                            {
+                                phase: "2",
+                                title: "Resource Mapping",
+                                items: ["Map people to initiatives", "Define % allocations", "Identify skill gaps"],
+                                color: "green"
+                            },
+                            {
+                                phase: "3",
+                                title: "Capacity Analysis",
+                                items: ["Calculate utilization", "Find bottlenecks", "Plan adjustments"],
+                                color: "orange"
+                            }
+                        ].map((phase, i) => (
+                            <div key={i} className="relative slide-in" style={{animationDelay: `${i * 0.2}s`}}>
+                                <div className={`w-16 h-16 bg-${phase.color}-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4`}>
+                                    {phase.phase}
+                                </div>
+                                <h3 className={`text-xl font-bold text-${phase.color}-600 text-center mb-4`}>{phase.title}</h3>
+                                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                    <ul className="space-y-2">
+                                        {phase.items.map((item, j) => (
+                                            <li key={j} className="flex items-start">
+                                                <span className={`text-${phase.color}-500 mr-2`}>•</span>
+                                                <span className="text-sm">{item}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                                {i < 2 && (
+                                    <div className="absolute top-8 -right-4 text-3xl text-gray-400">→</div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            const Slide6 = () => (
+                <div className="h-full bg-white p-8">
+                    <h2 className="text-4xl font-bold text-blue-800 mb-6">Phase 1: Consolidated Scope Spreadsheet</h2>
+                    
+                    <div className="overflow-x-auto mb-6">
+                        <table className="w-full border-collapse">
+                            <thead>
+                                <tr className="bg-blue-700 text-white">
+                                    <th className="border px-4 py-2 text-sm">ID</th>
+                                    <th className="border px-4 py-2 text-sm">Initiative</th>
+                                    <th className="border px-4 py-2 text-sm">Squad</th>
+                                    <th className="border px-4 py-2 text-sm">Type</th>
+                                    <th className="border px-4 py-2 text-sm">Priority</th>
+                                    <th className="border px-4 py-2 text-sm">Status</th>
+                                    <th className="border px-4 py-2 text-sm">Dependencies</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {[
+                                    ["CRD-001", "CRD Cloud", "Trading", "Strategic", "Critical", "Active", "Data"],
+                                    ["MOD-002", "Casper Mod", "Equity", "Strategic", "High", "Planning", "DevOps"],
+                                    ["BAU-003", "Compliance", "Compl.", "BAU", "Medium", "Ongoing", "None"],
+                                    ["CLD-004", "AWS Migrate", "DevOps", "Strategic", "Critical", "Active", "All"]
+                                ].map((row, i) => (
+                                    <tr key={i} className={i % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                                        {row.map((cell, j) => (
+                                            <td key={j} className={`border px-4 py-2 text-sm text-center ${
+                                                j === 4 && cell === "Critical" ? "text-red-600 font-bold" : 
+                                                j === 4 && cell === "High" ? "text-orange-600 font-bold" : ""
+                                            }`}>
+                                                {cell}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div className="bg-blue-50 rounded-lg p-4">
+                        <h3 className="font-bold text-blue-700 mb-3">Key Benefits:</h3>
+                        <ul className="space-y-2 text-sm">
+                            <li className="flex items-start">
+                                <span className="text-blue-500 mr-2">•</span>
+                                <span>Single source of truth for all technology work</span>
+                            </li>
+                            <li className="flex items-start">
+                                <span className="text-blue-500 mr-2">•</span>
+                                <span>Clear visibility into strategic vs. tactical initiatives</span>
+                            </li>
+                            <li className="flex items-start">
+                                <span className="text-blue-500 mr-2">•</span>
+                                <span>Dependency tracking across teams</span>
+                            </li>
+                            <li className="flex items-start">
+                                <span className="text-blue-500 mr-2">•</span>
+                                <span>Priority alignment with business objectives</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            );
+
+            const Slide7 = () => (
+                <div className="h-full bg-white p-8">
+                    <h2 className="text-4xl font-bold text-blue-800 mb-6">Phase 2: Resource Allocation Matrix</h2>
+                    
+                    <div className="overflow-x-auto mb-6">
+                        <table className="w-full border-collapse text-sm">
+                            <thead>
+                                <tr className="bg-green-700 text-white">
+                                    <th className="border px-3 py-2">Resource</th>
+                                    <th className="border px-3 py-2">Squad</th>
+                                    <th className="border px-3 py-2">Q1 2025</th>
+                                    <th className="border px-3 py-2">Q2 2025</th>
+                                    <th className="border px-3 py-2">Q3 2025</th>
+                                    <th className="border px-3 py-2">Q4 2025</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {[
+                                    ["Developer A", "Trading", "CRD: 80%\nBAU: 20%", "CRD: 60%\nCloud: 40%", "Cloud: 100%", "Cloud: 80%\nBAU: 20%"],
+                                    ["Developer B", "Equity PM", "Casper: 100%", "Casper: 70%\nCRD: 30%", "Cloud: 50%\nBAU: 50%", "Cloud: 100%"],
+                                    ["Data Eng C", "Data", "CRD: 40%\nJEDI: 60%", "GDAP: 80%\nBAU: 20%", "Cloud: 100%", "Cloud: 100%"]
+                                ].map((row, i) => (
+                                    <tr key={i} className={i % 2 === 0 ? "bg-green-50" : "bg-white"}>
+                                        {row.map((cell, j) => (
+                                            <td key={j} className="border px-3 py-2 text-center whitespace-pre-line">
+                                                {cell}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div className="flex justify-around items-center bg-gray-50 rounded-lg p-4">
+                        <h3 className="font-bold text-green-700">Capacity Insights:</h3>
+                        <div className="flex items-center">
+                            <div className="w-4 h-4 bg-red-500 mr-2"></div>
+                            <span className="text-sm">Over-allocated (>100%)</span>
+                        </div>
+                        <div className="flex items-center">
+                            <div className="w-4 h-4 bg-green-500 mr-2"></div>
+                            <span className="text-sm">Optimal (80-100%)</span>
+                        </div>
+                        <div className="flex items-center">
+                            <div className="w-4 h-4 bg-blue-400 mr-2"></div>
+                            <span className="text-sm">Under-utilized (<80%)</span>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const Slide8 = () => (
+                <div className="h-full bg-gray-50 p-8">
+                    <h2 className="text-4xl font-bold text-blue-800 mb-6">Phase 3: Demand & Capacity Dashboard</h2>
+                    
+                    <div className="grid grid-cols-4 gap-4 mb-6">
+                        {[
+                            { label: "Total Initiatives", value: "47", trend: "↑", color: "blue" },
+                            { label: "Resources", value: "24", trend: "→", color: "green" },
+                            { label: "Avg Utilization", value: "118%", trend: "⚠", color: "orange" },
+                            { label: "Dependencies", value: "23", trend: "↑", color: "purple" }
+                        ].map((metric, i) => (
+                            <div key={i} className={`bg-white rounded-lg border-2 border-${metric.color}-600 p-4 text-center`}>
+                                <div className={`text-2xl font-bold text-${metric.color}-600`}>
+                                    {metric.value} <span className="text-xl">{metric.trend}</span>
+                                </div>
+                                <div className="text-sm text-gray-600">{metric.label}</div>
+                            </div>
+                        ))}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="bg-white rounded-lg p-4">
+                            <h3 className="font-bold text-blue-700 mb-4">Squad Capacity Analysis</h3>
+                            <div className="space-y-3">
+                                {[
+                                    { squad: "Trading", capacity: 110, color: "blue" },
+                                    { squad: "Equity PM", capacity: 105, color: "green" },
+                                    { squad: "Compliance", capacity: 78, color: "orange" },
+                                    { squad: "Data", capacity: 140, color: "red" }
+                                ].map((item, i) => (
+                                    <div key={i} className="flex items-center">
+                                        <div className="w-24 text-sm">{item.squad}</div>
+                                        <div className="flex-1 bg-gray-200 rounded-full h-6 relative">
+                                            <div 
+                                                className={`bg-${item.color}-500 h-6 rounded-full flex items-center justify-end pr-2`}
+                                                style={{width: `${Math.min(item.capacity, 150) / 1.5}%`}}
+                                            >
+                                                <span className="text-white text-xs font-bold">{item.capacity}%</span>
+                                            </div>
+                                            <div className="absolute left-2/3 top-0 h-full w-0.5 bg-black opacity-50"></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        <div className="bg-white rounded-lg p-4">
+                            <h3 className="font-bold text-orange-600 mb-4">Key Insights</h3>
+                            <ul className="space-y-2 text-sm">
+                                <li className="flex items-start">
+                                    <span className="text-orange-500 mr-2">•</span>
+                                    <span>Data team at 140% capacity - critical bottleneck</span>
+                                </li>
+                                <li className="flex items-start">
+                                    <span className="text-orange-500 mr-2">•</span>
+                                    <span>Trading squad needs additional resources for Q2</span>
+                                </li>
+                                <li className="flex items-start">
+                                    <span className="text-orange-500 mr-2">•</span>
+                                    <span>23 unresolved dependencies blocking progress</span>
+                                </li>
+                                <li className="flex items-start">
+                                    <span className="text-orange-500 mr-2">•</span>
+                                    <span>Need 3-4 additional developers for cloud migration</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const Slide9 = () => (
+                <div className="h-full bg-white p-8">
+                    <h2 className="text-4xl font-bold text-blue-800 mb-8">Implementation Roadmap</h2>
+                    
+                    <div className="relative">
+                        {[
+                            { week: "Week 1-2", task: "Scope Discovery", desc: "Interview squad leads, catalog all initiatives" },
+                            { week: "Week 3", task: "Build Spreadsheet", desc: "Create consolidated scope repository" },
+                            { week: "Week 4-5", task: "Resource Mapping", desc: "Map people to initiatives, define allocations" },
+                            { week: "Week 6", task: "Analysis & Insights", desc: "Calculate capacity, identify gaps" },
+                            { week: "Week 7-8", task: "Dashboard Creation", desc: "Build Power BI dashboards for ongoing monitoring" },
+                            { week: "Ongoing", task: "Continuous Updates", desc: "Weekly updates, quarterly planning integration" }
+                        ].map((item, i) => (
+                            <div key={i} className="flex items-center mb-6 slide-in" style={{animationDelay: `${i * 0.1}s`}}>
+                                <div className="relative">
+                                    <div className={`w-4 h-4 ${i === 5 ? 'bg-green-600' : 'bg-blue-600'} rounded-full`}></div>
+                                    {i < 5 && (
+                                        <div className="absolute top-4 left-1.5 w-1 h-12 bg-gray-300"></div>
+                                    )}
+                                </div>
+                                <div className="ml-6 grid grid-cols-3 gap-4 flex-1">
+                                    <div className="font-bold text-blue-700">{item.week}</div>
+                                    <div className="font-semibold">{item.task}</div>
+                                    <div className="text-gray-600 text-sm">{item.desc}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            const Slide10 = () => (
+                <div className="h-full bg-blue-50 p-8">
+                    <h2 className="text-4xl font-bold text-blue-800 mb-4">Expected Outcomes</h2>
+                    <p className="text-xl text-gray-600 mb-8">What Success Looks Like</p>
+                    
+                    <div className="grid grid-cols-3 gap-6">
+                        {[
+                            { title: "100% Visibility", metric: "All initiatives tracked", desc: "Every piece of work visible in one place" },
+                            { title: "Resource Optimization", metric: "<100% utilization", desc: "No team member over-allocated" },
+                            { title: "Dependency Resolution", metric: "2-day resolution", desc: "Dependencies identified and resolved quickly" },
+                            { title: "Predictive Planning", metric: "3-month forecast", desc: "Accurate capacity forecasting" },
+                            { title: "Delivery Acceleration", metric: "25% faster", desc: "Reduced delays from resource conflicts" },
+                            { title: "Risk Reduction", metric: "Early warnings", desc: "Proactive identification of delivery risks" }
+                        ].map((outcome, i) => (
+                            <div key={i} className="bg-white rounded-lg border-2 border-green-600 p-4 hover:shadow-lg transition-shadow fade-in" style={{animationDelay: `${i * 0.1}s`}}>
+                                <h3 className="font-bold text-green-700 text-center mb-2">{outcome.title}</h3>
+                                <div className="text-2xl font-bold text-blue-700 text-center mb-2">{outcome.metric}</div>
+                                <p className="text-sm text-gray-600 text-center">{outcome.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            const Slide11 = () => (
+                <div className="h-full bg-white relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-700 to-blue-500"></div>
+                    
+                    <div className="h-full flex flex-col justify-center items-center p-8">
+                        <h2 className="text-5xl font-bold text-blue-800 mb-12">Next Steps</h2>
+                        
+                        <div className="space-y-6 max-w-3xl">
+                            {[
+                                { number: "1", action: "Approve the consolidated scope management approach" },
+                                { number: "2", action: "Allocate dedicated time from squad leads for scope cataloging" },
+                                { number: "3", action: "Designate a program manager to own the process" },
+                                { number: "4", action: "Commit to weekly updates and quarterly reviews" }
+                            ].map((item, i) => (
+                                <div key={i} className="flex items-center slide-in" style={{animationDelay: `${i * 0.15}s`}}>
+                                    <div className="w-12 h-12 bg-orange-600 rounded-full flex items-center justify-center text-white text-xl font-bold">
+                                        {item.number}
+                                    </div>
+                                    <div className="ml-4 text-lg">{item.action}</div>
+                                </div>
+                            ))}
+                        </div>
+                        
+                        <div className="mt-12 text-center">
+                            <p className="text-2xl italic text-blue-600">
+                                Transform visibility. Enable delivery. Drive results.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div className="absolute bottom-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+                </div>
+            );
+
+            // All slides array
+            const slides = [
+                { id: 1, title: "Title", content: <Slide1 /> },
+                { id: 2, title: "Current Challenge", content: <Slide2 /> },
+                { id: 3, title: "Impact", content: <Slide3 /> },
+                { id: 4, title: "Why Consolidate", content: <Slide4 /> },
+                { id: 5, title: "Solution", content: <Slide5 /> },
+                { id: 6, title: "Phase 1", content: <Slide6 /> },
+                { id: 7, title: "Phase 2", content: <Slide7 /> },
+                { id: 8, title: "Phase 3", content: <Slide8 /> },
+                { id: 9, title: "Roadmap", content: <Slide9 /> },
+                { id: 10, title: "Outcomes", content: <Slide10 /> },
+                { id: 11, title: "Next Steps", content: <Slide11 /> }
+            ];
+
+            return (
+                <div ref={presentationRef} className="h-screen flex flex-col bg-gray-900">
+                    {/* Header */}
+                    <div className="glass-effect px-6 py-3 flex justify-between items-center">
+                        <div className="flex items-center space-x-4">
+                            <h1 className="text-xl font-semibold text-gray-800">
+                                ACME Technology - Scope & Capacity Management
+                            </h1>
+                            <span className="text-sm text-gray-600">
+                                Slide {currentSlide + 1} of {slides.length}
+                            </span>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                            <button
+                                onClick={toggleFullscreen}
+                                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm"
+                            >
+                                {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen (F)'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Main Content */}
+                    <div className="flex-1 flex">
+                        {/* Sidebar */}
+                        <div className="w-48 bg-gray-800 p-4 overflow-y-auto">
+                            <h3 className="text-white text-sm font-semibold mb-4">Slides</h3>
+                            <div className="space-y-2">
+                                {slides.map((slide, index) => (
+                                    <button
+                                        key={slide.id}
+                                        onClick={() => goToSlide(index)}
+                                        className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                                            currentSlide === index
+                                                ? 'bg-blue-600 text-white'
+                                                : 'text-gray-300 hover:bg-gray-700'
+                                        }`}
+                                    >
+                                        {index + 1}. {slide.title}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Slide Content */}
+                        <div className="flex-1 p-8 flex items-center justify-center">
+                            <div className="w-full max-w-7xl h-full bg-white rounded-lg shadow-2xl overflow-hidden">
+                                {slides[currentSlide].content}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer Controls */}
+                    <div className="glass-effect px-6 py-4 flex justify-between items-center">
+                        <button
+                            onClick={prevSlide}
+                            disabled={currentSlide === 0}
+                            className={`px-4 py-2 rounded transition-colors ${
+                                currentSlide === 0
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                            }`}
+                        >
+                            ← Previous
+                        </button>
+                        
+                        <div className="flex space-x-2">
+                            {slides.map((_, index) => (
+                                <button
+                                    key={index}
+                                    onClick={() => goToSlide(index)}
+                                    className={`w-2 h-2 rounded-full transition-colors ${
+                                        currentSlide === index ? 'bg-blue-600' : 'bg-gray-400'
+                                    }`}
+                                />
+                            ))}
+                        </div>
+                        
+                        <button
+                            onClick={nextSlide}
+                            disabled={currentSlide === slides.length - 1}
+                            className={`px-4 py-2 rounded transition-colors ${
+                                currentSlide === slides.length - 1
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                            }`}
+                        >
+                            Next →
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // Render the app
+        ReactDOM.render(<ScopeCapacityPresentation />, document.getElementById('root'));
+    </script>
+</body>
+</html>
