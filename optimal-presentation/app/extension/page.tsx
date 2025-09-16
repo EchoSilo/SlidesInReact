@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import {
@@ -34,6 +34,7 @@ import {
   Route,
 } from "lucide-react"
 import { toPng } from 'html-to-image'
+import JSZip from 'jszip'
 
 const slides = [
   {
@@ -558,6 +559,7 @@ const slides = [
 export default function ExtensionPresentation() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isExporting, setIsExporting] = useState(false)
+  const [pptxReady, setPptxReady] = useState(false)
 
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % slides.length)
@@ -610,6 +612,9 @@ export default function ExtensionPresentation() {
       const slideElement = document.getElementById("current-slide")
       if (!slideElement) return
 
+      const zip = new JSZip()
+      const originalSlide = currentSlide
+
       for (let i = 0; i < slides.length; i++) {
         setCurrentSlide(i)
         await new Promise(resolve => setTimeout(resolve, 300))
@@ -630,13 +635,22 @@ export default function ExtensionPresentation() {
           }
         })
 
-        const link = document.createElement("a")
-        link.download = `extension-slide-${i + 1}-${slides[i].id}.png`
-        link.href = dataUrl
-        link.click()
-
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // Convert data URL to blob and add to ZIP
+        const response = await fetch(dataUrl)
+        const blob = await response.blob()
+        zip.file(`extension-slide-${i + 1}-${slides[i].id}.png`, blob)
       }
+
+      // Restore original slide
+      setCurrentSlide(originalSlide)
+
+      // Generate ZIP file and download
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const link = document.createElement("a")
+      link.download = "extension-slides.zip"
+      link.href = URL.createObjectURL(zipBlob)
+      link.click()
+      URL.revokeObjectURL(link.href)
     } catch (error) {
       console.error("Error exporting all slides:", error)
     } finally {
@@ -646,115 +660,208 @@ export default function ExtensionPresentation() {
 
   const exportAllSlidesAsPPTX = async () => {
     setIsExporting(true)
+    console.log('🚀 Starting PPTX export process...')
+    console.log('📊 Total slides to export:', slides.length)
+
     try {
-      // Check if we're on the client side and PptxGenJS is available
+      // Check if we're on the client side
       if (typeof window === 'undefined') {
         throw new Error('PPTX export only works on the client side')
       }
 
-      let PptxGenJSModule;
-      try {
-        PptxGenJSModule = await import('pptxgenjs')
-      } catch (importError) {
-        console.error('Failed to import pptxgenjs:', importError)
-        throw new Error('PPTX library could not be loaded. Please ensure pptxgenjs is properly installed.')
-      }
+      console.log('📦 Importing pptxgenjs library...')
+      const pptxModule = await import('pptxgenjs')
+      const PptxGenJS = pptxModule.default
+      console.log('✅ pptxgenjs library imported successfully')
 
-      const pptx = new PptxGenJSModule.default()
+      console.log('🏗️ Creating new PPTX presentation...')
+      const pptx = new PptxGenJS()
 
       pptx.defineLayout({ name: 'LAYOUT_16x9', width: 10, height: 5.625 })
       pptx.layout = 'LAYOUT_16x9'
+      console.log('📐 Layout configured: 16:9 aspect ratio')
 
-      const slideElement = document.getElementById("current-slide")
-      if (!slideElement) return
-
+      // Process all slides without changing the current slide view
+      console.log('🔄 Processing slides...')
       for (let i = 0; i < slides.length; i++) {
-        setCurrentSlide(i)
-        await new Promise(resolve => setTimeout(resolve, 300))
+        console.log(`📄 Processing slide ${i + 1}/${slides.length}: ${slides[i].id} (${slides[i].type})`)
 
-        const slide = pptx.addSlide()
-        const currentSlideData = slides[i]
+        try {
+          const slide = pptx.addSlide()
+          const currentSlideData = slides[i]
+          console.log(`  ✅ Slide ${i + 1} created successfully`)
 
-        // Add slide content based on slide type
-        if (currentSlideData.type === "title") {
-          slide.addText(currentSlideData.title, {
-            x: 0.5, y: 2, w: 9, h: 1.5,
-            fontSize: 44, bold: true, align: 'center',
-            color: '363636'
-          })
-          slide.addText(currentSlideData.subtitle, {
-            x: 0.5, y: 3.5, w: 9, h: 0.8,
-            fontSize: 24, align: 'center',
-            color: '666666'
-          })
-          if (currentSlideData.tagline) {
-            slide.addText(currentSlideData.tagline, {
-              x: 0.5, y: 4.3, w: 9, h: 0.6,
-              fontSize: 18, italic: true, align: 'center',
-              color: '888888'
+          // Add slide content based on slide type
+          if (currentSlideData.type === "title") {
+            console.log(`  📝 Adding title slide content...`)
+            slide.addText(currentSlideData.title, {
+              x: 0.5, y: 2, w: 9, h: 1.5,
+              fontSize: 44, bold: true, align: 'center',
+              color: '363636'
             })
-          }
-        } else {
-          // For other slide types, add basic title and subtitle
-          slide.addText(currentSlideData.title, {
-            x: 0.5, y: 0.3, w: 9, h: 0.8,
-            fontSize: 32, bold: true,
-            color: '363636'
-          })
-          slide.addText(currentSlideData.subtitle, {
-            x: 0.5, y: 1.1, w: 9, h: 0.6,
-            fontSize: 18,
-            color: '666666'
-          })
-
-          // Add content based on slide structure
-          if (currentSlideData.content) {
-            let yPos = 2
-
-            // Handle different content types
-            if (currentSlideData.content.description) {
-              slide.addText(currentSlideData.content.description, {
-                x: 0.5, y: yPos, w: 9, h: 0.8,
-                fontSize: 14,
-                color: '444444'
+            slide.addText(currentSlideData.subtitle, {
+              x: 0.5, y: 3.5, w: 9, h: 0.8,
+              fontSize: 24, align: 'center',
+              color: '666666'
+            })
+            if (currentSlideData.tagline) {
+              slide.addText(currentSlideData.tagline, {
+                x: 0.5, y: 4.3, w: 9, h: 0.6,
+                fontSize: 18, italic: true, align: 'center',
+                color: '888888'
               })
-              yPos += 1
             }
+          } else {
+            console.log(`  📝 Adding ${currentSlideData.type} slide content...`)
+            // Add title and subtitle for all slides
+            slide.addText(currentSlideData.title, {
+              x: 0.5, y: 0.3, w: 9, h: 0.8,
+              fontSize: 28, bold: true,
+              color: '363636'
+            })
+            slide.addText(currentSlideData.subtitle, {
+              x: 0.5, y: 1.1, w: 9, h: 0.6,
+              fontSize: 16,
+              color: '666666'
+            })
 
-            // Handle lists (achievements, benefits, etc.)
-            const listItems = currentSlideData.content.achievements ||
-                            currentSlideData.content.benefits ||
-                            currentSlideData.content.outcomes ||
-                            currentSlideData.content.steps ||
-                            []
+            // Add content based on slide structure
+            if (currentSlideData.content) {
+              let yPos = 1.9
+              let itemCount = 0
 
-            if (listItems.length > 0) {
-              listItems.forEach((item: any, index: number) => {
-                const text = typeof item === 'string' ? item :
-                           item.title ? `${item.title}: ${item.description || ''}` :
-                           item.description || item
-                slide.addText(`• ${text}`, {
-                  x: 0.5, y: yPos, w: 9, h: 0.4,
+              // Handle description
+              if (currentSlideData.content.description) {
+                slide.addText(currentSlideData.content.description, {
+                  x: 0.5, y: yPos, w: 9, h: 0.6,
                   fontSize: 12,
                   color: '444444'
                 })
-                yPos += 0.5
+                yPos += 0.8
+                itemCount++
+              }
+
+              // Handle different content structures
+              const contentArrays = [
+                currentSlideData.content.achievements,
+                currentSlideData.content.benefits,
+                currentSlideData.content.outcomes,
+                currentSlideData.content.steps,
+                currentSlideData.content.strengths,
+                currentSlideData.content.insights,
+                currentSlideData.content.objectives,
+                currentSlideData.content.activities,
+                currentSlideData.content.roles,
+                currentSlideData.content.categories,
+                currentSlideData.content.phases,
+                currentSlideData.content.options
+              ].filter(Boolean)
+
+              // Process each content array
+              contentArrays.forEach((items) => {
+                if (items && items.length > 0) {
+                  items.forEach((item: any, index: number) => {
+                    if (yPos > 5) return // Don't exceed slide bounds
+
+                    let text = ''
+                    if (typeof item === 'string') {
+                      text = `• ${item}`
+                    } else if (item.title && item.description) {
+                      text = `• ${item.title}: ${item.description}`
+                    } else if (item.title) {
+                      text = `• ${item.title}`
+                    } else if (item.description) {
+                      text = `• ${item.description}`
+                    }
+
+                    if (text) {
+                      slide.addText(text, {
+                        x: 0.5, y: yPos, w: 9, h: 0.3,
+                        fontSize: 11,
+                        color: '444444'
+                      })
+                      yPos += 0.35
+                      itemCount++
+                    }
+                  })
+                }
               })
+
+              // Handle special content types
+              if (currentSlideData.content.question) {
+                slide.addText(`"${currentSlideData.content.question}"`, {
+                  x: 0.5, y: yPos, w: 9, h: 0.8,
+                  fontSize: 14, italic: true,
+                  color: '2563EB'
+                })
+                yPos += 1
+                itemCount++
+              }
+
+              if (currentSlideData.content.vision) {
+                slide.addText(currentSlideData.content.vision, {
+                  x: 0.5, y: yPos, w: 9, h: 1,
+                  fontSize: 12, italic: true,
+                  color: '444444'
+                })
+                yPos += 1.2
+                itemCount++
+              }
+
+              if (currentSlideData.content.reality) {
+                slide.addText(currentSlideData.content.reality, {
+                  x: 0.5, y: yPos, w: 9, h: 0.8,
+                  fontSize: 12,
+                  color: '444444'
+                })
+                itemCount++
+              }
+
+              if (currentSlideData.content.closing) {
+                slide.addText(currentSlideData.content.closing, {
+                  x: 0.5, y: yPos, w: 9, h: 1,
+                  fontSize: 12, italic: true,
+                  color: '444444'
+                })
+                itemCount++
+              }
+
+              if (currentSlideData.content.cta) {
+                slide.addText(currentSlideData.content.cta, {
+                  x: 0.5, y: yPos + 1.2, w: 9, h: 0.6,
+                  fontSize: 16, bold: true, align: 'center',
+                  color: '2563EB'
+                })
+                itemCount++
+              }
+
+              console.log(`    📋 Added ${itemCount} content items to slide ${i + 1}`)
             }
           }
+          console.log(`  ✅ Slide ${i + 1} content added successfully`)
+        } catch (slideError) {
+          console.error(`❌ Error processing slide ${i + 1}:`, slideError)
+          throw slideError
         }
       }
 
+      console.log('🎯 All slides processed successfully!')
+      console.log('💾 Generating PPTX file...')
+
       // Generate and download the PPTX file
-      const pptxData = await pptx.writeFile({
+      await pptx.writeFile({
         fileName: "Extension-Implementation-Partnership"
       })
 
+      console.log('🎉 PPTX export completed successfully!')
+      alert(`Successfully exported ${slides.length} slides to PPTX!`)
+
     } catch (error) {
-      console.error("Error exporting to PPTX:", error)
-      alert("Error exporting to PPTX. Please try again or use PNG export.")
+      console.error("❌ Error exporting to PPTX:", error)
+      alert(`Error exporting to PPTX: ${error.message}. Check console for details.`)
     } finally {
       setIsExporting(false)
+      console.log('🏁 Export process finished')
     }
   }
 
@@ -1381,7 +1488,7 @@ export default function ExtensionPresentation() {
               className="flex items-center gap-2 bg-transparent"
             >
               <Download className="w-4 h-4" />
-              {isExporting ? "Exporting All..." : "Export All PNG"}
+              {isExporting ? "Creating ZIP..." : "Export ZIP"}
             </Button>
 
             <Button
