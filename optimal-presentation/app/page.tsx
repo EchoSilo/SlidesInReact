@@ -105,21 +105,94 @@ export default function PresentationHub() {
   const exportToPPTX = async () => {
     setIsExporting(true)
     try {
-      // Placeholder for PPTX export functionality
-      // In a real implementation, you would use a library like pptxgenjs
-      console.log("Exporting presentations to PPTX...")
+      console.log("Exporting all presentations to PPTX...")
 
-      // Simulate export process
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Check if we're on the client side and PptxGenJS is available
+      if (typeof window === 'undefined') {
+        throw new Error('PPTX export only works on the client side')
+      }
 
-      // Create a dummy download (in real implementation, this would be actual PPTX)
-      const link = document.createElement("a")
-      link.download = "technology-transformation-presentations.pptx"
-      link.href = "#" // In real implementation, this would be the PPTX blob URL
+      let PptxGenJSModule;
+      try {
+        PptxGenJSModule = await import('pptxgenjs')
+      } catch (importError) {
+        console.error('Failed to import pptxgenjs:', importError)
+        throw new Error('PPTX library could not be loaded. Please ensure pptxgenjs is properly installed.')
+      }
 
-      alert("PPTX export functionality would be implemented here using libraries like pptxgenjs")
+      const pptx = new PptxGenJSModule.default()
+
+      pptx.defineLayout({ name: 'LAYOUT_16x9', width: 10, height: 5.625 })
+      pptx.layout = 'LAYOUT_16x9'
+
+      // Create a title slide for the compilation
+      const titleSlide = pptx.addSlide()
+      titleSlide.addText('Technology Transformation', {
+        x: 0.5, y: 2, w: 9, h: 1.5,
+        fontSize: 44, bold: true, align: 'center',
+        color: '363636'
+      })
+      titleSlide.addText('Presentation Suite', {
+        x: 0.5, y: 3.5, w: 9, h: 0.8,
+        fontSize: 32, align: 'center',
+        color: '666666'
+      })
+      titleSlide.addText('Complete Framework Collection', {
+        x: 0.5, y: 4.3, w: 9, h: 0.6,
+        fontSize: 18, italic: true, align: 'center',
+        color: '888888'
+      })
+
+      // Add a slide for each presentation
+      presentations.forEach((presentation, index) => {
+        const slide = pptx.addSlide()
+
+        slide.addText(`${index + 1}. ${presentation.title}`, {
+          x: 0.5, y: 0.3, w: 9, h: 0.8,
+          fontSize: 28, bold: true,
+          color: '363636'
+        })
+
+        slide.addText(presentation.subtitle, {
+          x: 0.5, y: 1.1, w: 9, h: 0.6,
+          fontSize: 18,
+          color: '666666'
+        })
+
+        slide.addText(presentation.description, {
+          x: 0.5, y: 1.8, w: 9, h: 0.8,
+          fontSize: 14,
+          color: '444444'
+        })
+
+        // Add key features
+        if (presentation.features && presentation.features.length > 0) {
+          slide.addText('Key Features:', {
+            x: 0.5, y: 2.8, w: 9, h: 0.4,
+            fontSize: 16, bold: true,
+            color: '363636'
+          })
+
+          presentation.features.slice(0, 4).forEach((feature, featureIndex) => {
+            slide.addText(`• ${feature}`, {
+              x: 0.5, y: 3.2 + (featureIndex * 0.4), w: 9, h: 0.3,
+              fontSize: 12,
+              color: '444444'
+            })
+          })
+        }
+      })
+
+      // Generate and download the PPTX file
+      await pptx.writeFile({
+        fileName: "technology-transformation-presentations"
+      })
+
+      console.log("Successfully exported all presentations to PPTX")
+
     } catch (error) {
       console.error("Error exporting to PPTX:", error)
+      alert(`Error exporting to PPTX: ${error.message}. Please try again or contact support.`)
     } finally {
       setIsExporting(false)
     }
@@ -160,14 +233,72 @@ export default function PresentationHub() {
     try {
       console.log(`Exporting ${presentationTitle} to PPTX...`)
 
-      // Simulate PPTX export process
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Check if we're on the client side and PptxGenJS is available
+      if (typeof window === 'undefined') {
+        throw new Error('PPTX export only works on the client side')
+      }
 
-      // In a real implementation, you would use pptxgenjs or similar
-      alert(`PPTX export for "${presentationTitle}" would generate a PowerPoint file. Implementation requires pptxgenjs library integration.`)
+      let PptxGenJSModule;
+      try {
+        PptxGenJSModule = await import('pptxgenjs')
+      } catch (importError) {
+        console.error('Failed to import pptxgenjs:', importError)
+        throw new Error('PPTX library could not be loaded. Please ensure pptxgenjs is properly installed.')
+      }
+
+      const pptx = new PptxGenJSModule.default()
+
+      pptx.defineLayout({ name: 'LAYOUT_16x9', width: 10, height: 5.625 })
+      pptx.layout = 'LAYOUT_16x9'
+
+      // Create a title slide
+      const titleSlide = pptx.addSlide()
+      titleSlide.addText(presentationTitle, {
+        x: 0.5, y: 2, w: 9, h: 1.5,
+        fontSize: 44, bold: true, align: 'center',
+        color: '363636'
+      })
+      titleSlide.addText('Technology Transformation Framework', {
+        x: 0.5, y: 3.5, w: 9, h: 0.8,
+        fontSize: 24, align: 'center',
+        color: '666666'
+      })
+
+      // Add a content slide with key points
+      const contentSlide = pptx.addSlide()
+      contentSlide.addText('Key Framework Components', {
+        x: 0.5, y: 0.3, w: 9, h: 0.8,
+        fontSize: 32, bold: true,
+        color: '363636'
+      })
+
+      const keyPoints = [
+        'Consolidated scope visibility and dashboard',
+        'Strategic resource allocation engine',
+        'Capacity planning and optimization',
+        'Implementation roadmap and phases',
+        'Measurement and success metrics'
+      ]
+
+      keyPoints.forEach((point, index) => {
+        contentSlide.addText(`• ${point}`, {
+          x: 0.5, y: 1.5 + (index * 0.6), w: 9, h: 0.5,
+          fontSize: 16,
+          color: '444444'
+        })
+      })
+
+      // Generate and download the PPTX file
+      const fileName = presentationTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()
+      await pptx.writeFile({
+        fileName: fileName
+      })
+
+      console.log(`Successfully exported ${presentationTitle} to PPTX`)
+
     } catch (error) {
       console.error("Error exporting to PPTX:", error)
-      alert("Error exporting presentation")
+      alert(`Error exporting to PPTX: ${error.message}. Please try again or contact support.`)
     } finally {
       setIsExporting(false)
     }

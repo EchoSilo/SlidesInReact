@@ -16,8 +16,32 @@ const nextConfig = {
         fs: false,
         path: false,
         crypto: false,
+        stream: false,
+        os: false,
+        https: false,
+        http: false,
+        url: false,
+        assert: false,
+        buffer: false,
+        process: false,
       }
     }
+
+    // Handle node: protocol imports for pptxgenjs
+    config.externals = config.externals || []
+    if (!isServer) {
+      config.externals.push({
+        'node:fs': 'commonjs node:fs',
+        'node:https': 'commonjs node:https',
+        'node:http': 'commonjs node:http',
+        'node:url': 'commonjs node:url',
+        'node:path': 'commonjs node:path',
+        'node:stream': 'commonjs node:stream',
+        'node:crypto': 'commonjs node:crypto',
+        'node:os': 'commonjs node:os'
+      })
+    }
+
     return config
   },
 }

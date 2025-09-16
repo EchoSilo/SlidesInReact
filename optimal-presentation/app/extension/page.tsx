@@ -644,6 +644,120 @@ export default function ExtensionPresentation() {
     }
   }
 
+  const exportAllSlidesAsPPTX = async () => {
+    setIsExporting(true)
+    try {
+      // Check if we're on the client side and PptxGenJS is available
+      if (typeof window === 'undefined') {
+        throw new Error('PPTX export only works on the client side')
+      }
+
+      let PptxGenJSModule;
+      try {
+        PptxGenJSModule = await import('pptxgenjs')
+      } catch (importError) {
+        console.error('Failed to import pptxgenjs:', importError)
+        throw new Error('PPTX library could not be loaded. Please ensure pptxgenjs is properly installed.')
+      }
+
+      const pptx = new PptxGenJSModule.default()
+
+      pptx.defineLayout({ name: 'LAYOUT_16x9', width: 10, height: 5.625 })
+      pptx.layout = 'LAYOUT_16x9'
+
+      const slideElement = document.getElementById("current-slide")
+      if (!slideElement) return
+
+      for (let i = 0; i < slides.length; i++) {
+        setCurrentSlide(i)
+        await new Promise(resolve => setTimeout(resolve, 300))
+
+        const slide = pptx.addSlide()
+        const currentSlideData = slides[i]
+
+        // Add slide content based on slide type
+        if (currentSlideData.type === "title") {
+          slide.addText(currentSlideData.title, {
+            x: 0.5, y: 2, w: 9, h: 1.5,
+            fontSize: 44, bold: true, align: 'center',
+            color: '363636'
+          })
+          slide.addText(currentSlideData.subtitle, {
+            x: 0.5, y: 3.5, w: 9, h: 0.8,
+            fontSize: 24, align: 'center',
+            color: '666666'
+          })
+          if (currentSlideData.tagline) {
+            slide.addText(currentSlideData.tagline, {
+              x: 0.5, y: 4.3, w: 9, h: 0.6,
+              fontSize: 18, italic: true, align: 'center',
+              color: '888888'
+            })
+          }
+        } else {
+          // For other slide types, add basic title and subtitle
+          slide.addText(currentSlideData.title, {
+            x: 0.5, y: 0.3, w: 9, h: 0.8,
+            fontSize: 32, bold: true,
+            color: '363636'
+          })
+          slide.addText(currentSlideData.subtitle, {
+            x: 0.5, y: 1.1, w: 9, h: 0.6,
+            fontSize: 18,
+            color: '666666'
+          })
+
+          // Add content based on slide structure
+          if (currentSlideData.content) {
+            let yPos = 2
+
+            // Handle different content types
+            if (currentSlideData.content.description) {
+              slide.addText(currentSlideData.content.description, {
+                x: 0.5, y: yPos, w: 9, h: 0.8,
+                fontSize: 14,
+                color: '444444'
+              })
+              yPos += 1
+            }
+
+            // Handle lists (achievements, benefits, etc.)
+            const listItems = currentSlideData.content.achievements ||
+                            currentSlideData.content.benefits ||
+                            currentSlideData.content.outcomes ||
+                            currentSlideData.content.steps ||
+                            []
+
+            if (listItems.length > 0) {
+              listItems.forEach((item: any, index: number) => {
+                const text = typeof item === 'string' ? item :
+                           item.title ? `${item.title}: ${item.description || ''}` :
+                           item.description || item
+                slide.addText(`• ${text}`, {
+                  x: 0.5, y: yPos, w: 9, h: 0.4,
+                  fontSize: 12,
+                  color: '444444'
+                })
+                yPos += 0.5
+              })
+            }
+          }
+        }
+      }
+
+      // Generate and download the PPTX file
+      const pptxData = await pptx.writeFile({
+        fileName: "Extension-Implementation-Partnership"
+      })
+
+    } catch (error) {
+      console.error("Error exporting to PPTX:", error)
+      alert("Error exporting to PPTX. Please try again or use PNG export.")
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   const slide = slides[currentSlide]
 
   const renderSlideContent = () => {
@@ -1268,6 +1382,17 @@ export default function ExtensionPresentation() {
             >
               <Download className="w-4 h-4" />
               {isExporting ? "Exporting All..." : "Export All PNG"}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportAllSlidesAsPPTX}
+              disabled={isExporting}
+              className="flex items-center gap-2 bg-transparent"
+            >
+              <FileText className="w-4 h-4" />
+              {isExporting ? "Exporting PPTX..." : "Export PPTX"}
             </Button>
           </div>
 
