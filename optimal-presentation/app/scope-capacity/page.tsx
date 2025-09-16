@@ -30,6 +30,7 @@ import {
   Award
 } from "lucide-react"
 import { toPng } from 'html-to-image'
+import JSZip from 'jszip'
 
 const slides = [
   {
@@ -250,6 +251,214 @@ export default function ScopeCapacityPresentation() {
       console.error("Error exporting slide:", error)
     } finally {
       setIsExporting(false)
+    }
+  }
+
+  const exportAllSlidesAsPNG = async () => {
+    setIsExporting(true)
+    try {
+      const slideElement = document.getElementById("current-slide")
+      if (!slideElement) return
+
+      const zip = new JSZip()
+      const originalSlide = currentSlide
+
+      for (let i = 0; i < slides.length; i++) {
+        setCurrentSlide(i)
+        await new Promise(resolve => setTimeout(resolve, 300))
+
+        const rect = slideElement.getBoundingClientRect()
+
+        const dataUrl = await toPng(slideElement, {
+          quality: 1.0,
+          pixelRatio: 2,
+          width: rect.width + 10,
+          height: rect.height + 10,
+          backgroundColor: '#ffffff',
+          style: {
+            transform: 'scale(1)',
+            transformOrigin: 'top left',
+            margin: '5px',
+            padding: '0'
+          }
+        })
+
+        // Convert data URL to blob and add to ZIP
+        const response = await fetch(dataUrl)
+        const blob = await response.blob()
+        zip.file(`scope-capacity-slide-${i + 1}-${slides[i].id}.png`, blob)
+      }
+
+      // Restore original slide
+      setCurrentSlide(originalSlide)
+
+      // Generate ZIP file and download
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const link = document.createElement("a")
+      link.download = "scope-capacity-slides.zip"
+      link.href = URL.createObjectURL(zipBlob)
+      link.click()
+      URL.revokeObjectURL(link.href)
+    } catch (error) {
+      console.error("Error exporting all slides:", error)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const exportAllSlidesAsPPTX = async () => {
+    setIsExporting(true)
+    console.log('🚀 Starting PPTX export process...')
+    console.log('📊 Total slides to export:', slides.length)
+
+    try {
+      // Check if we're on the client side
+      if (typeof window === 'undefined') {
+        throw new Error('PPTX export only works on the client side')
+      }
+
+      console.log('📦 Importing pptxgenjs library...')
+      const pptxModule = await import('pptxgenjs')
+      const PptxGenJS = pptxModule.default
+      console.log('✅ pptxgenjs library imported successfully')
+
+      console.log('🏗️ Creating new PPTX presentation...')
+      const pptx = new PptxGenJS()
+
+      pptx.defineLayout({ name: 'LAYOUT_16x9', width: 10, height: 5.625 })
+      pptx.layout = 'LAYOUT_16x9'
+      console.log('📐 Layout configured: 16:9 aspect ratio')
+
+      // Process all slides without changing the current slide view
+      console.log('🔄 Processing slides...')
+      for (let i = 0; i < slides.length; i++) {
+        console.log(`📄 Processing slide ${i + 1}/${slides.length}: ${slides[i].id} (${slides[i].type})`)
+
+        try {
+          const slide = pptx.addSlide()
+          const currentSlideData = slides[i]
+          console.log(`  ✅ Slide ${i + 1} created successfully`)
+
+          // Add slide content based on slide type
+          if (currentSlideData.type === "title") {
+            console.log(`  📝 Adding title slide content...`)
+            slide.addText(currentSlideData.title, {
+              x: 0.5, y: 2, w: 9, h: 1.5,
+              fontSize: 44, bold: true, align: 'center',
+              color: '363636'
+            })
+            slide.addText(currentSlideData.subtitle, {
+              x: 0.5, y: 3.5, w: 9, h: 0.8,
+              fontSize: 24, align: 'center',
+              color: '666666'
+            })
+            if (currentSlideData.tagline) {
+              slide.addText(currentSlideData.tagline, {
+                x: 0.5, y: 4.3, w: 9, h: 0.6,
+                fontSize: 18, italic: true, align: 'center',
+                color: '888888'
+              })
+            }
+          } else {
+            console.log(`  📝 Adding ${currentSlideData.type} slide content...`)
+            // Add title and subtitle for all slides
+            slide.addText(currentSlideData.title, {
+              x: 0.5, y: 0.3, w: 9, h: 0.8,
+              fontSize: 28, bold: true,
+              color: '363636'
+            })
+            slide.addText(currentSlideData.subtitle, {
+              x: 0.5, y: 1.1, w: 9, h: 0.6,
+              fontSize: 16,
+              color: '666666'
+            })
+
+            // Add content based on slide structure
+            if (currentSlideData.content) {
+              let yPos = 1.9
+              let itemCount = 0
+
+              // Handle description
+              if (currentSlideData.content.description) {
+                slide.addText(currentSlideData.content.description, {
+                  x: 0.5, y: yPos, w: 9, h: 0.6,
+                  fontSize: 12,
+                  color: '444444'
+                })
+                yPos += 0.8
+                itemCount++
+              }
+
+              // Handle different content structures
+              const contentArrays = [
+                currentSlideData.content.challenges,
+                currentSlideData.content.benefits,
+                currentSlideData.content.outcomes,
+                currentSlideData.content.features,
+                currentSlideData.content.components,
+                currentSlideData.content.steps,
+                currentSlideData.content.capabilities
+              ].filter(Boolean)
+
+              // Process each content array
+              contentArrays.forEach((items) => {
+                if (items && items.length > 0) {
+                  items.forEach((item: any, index: number) => {
+                    if (yPos > 5) return // Don't exceed slide bounds
+
+                    let text = ''
+                    if (typeof item === 'string') {
+                      text = `• ${item}`
+                    } else if (item.title && item.description) {
+                      text = `• ${item.title}: ${item.description}`
+                    } else if (item.title) {
+                      text = `• ${item.title}`
+                    } else if (item.description) {
+                      text = `• ${item.description}`
+                    } else if (item.label) {
+                      text = `• ${item.label}`
+                    }
+
+                    if (text) {
+                      slide.addText(text, {
+                        x: 0.5, y: yPos, w: 9, h: 0.3,
+                        fontSize: 11,
+                        color: '444444'
+                      })
+                      yPos += 0.35
+                      itemCount++
+                    }
+                  })
+                }
+              })
+
+              console.log(`    📋 Added ${itemCount} content items to slide ${i + 1}`)
+            }
+          }
+          console.log(`  ✅ Slide ${i + 1} content added successfully`)
+        } catch (slideError) {
+          console.error(`❌ Error processing slide ${i + 1}:`, slideError)
+          throw slideError
+        }
+      }
+
+      console.log('🎯 All slides processed successfully!')
+      console.log('💾 Generating PPTX file...')
+
+      // Generate and download the PPTX file
+      await pptx.writeFile({
+        fileName: "Scope-Capacity-Management"
+      })
+
+      console.log('🎉 PPTX export completed successfully!')
+      alert(`Successfully exported ${slides.length} slides to PPTX!`)
+
+    } catch (error) {
+      console.error("❌ Error exporting to PPTX:", error)
+      alert(`Error exporting to PPTX: ${error.message}. Check console for details.`)
+    } finally {
+      setIsExporting(false)
+      console.log('🏁 Export process finished')
     }
   }
 
@@ -495,6 +704,28 @@ export default function ScopeCapacityPresentation() {
             >
               <Download className="w-4 h-4" />
               {isExporting ? "Exporting..." : "Export PNG"}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportAllSlidesAsPNG}
+              disabled={isExporting}
+              className="flex items-center gap-2 bg-transparent"
+            >
+              <Download className="w-4 h-4" />
+              {isExporting ? "Creating ZIP..." : "Export ZIP"}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportAllSlidesAsPPTX}
+              disabled={isExporting}
+              className="flex items-center gap-2 bg-transparent"
+            >
+              <FileText className="w-4 h-4" />
+              {isExporting ? "Exporting PPTX..." : "Export PPTX"}
             </Button>
           </div>
 

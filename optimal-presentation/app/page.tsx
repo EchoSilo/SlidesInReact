@@ -229,78 +229,18 @@ export default function PresentationHub() {
   }
 
   const exportPresentationToPPTX = async (presentationRoute: string, presentationTitle: string) => {
-    setIsExporting(true)
     try {
-      console.log(`Exporting ${presentationTitle} to PPTX...`)
+      console.log(`Redirecting to ${presentationTitle} for full PPTX export...`)
 
-      // Check if we're on the client side and PptxGenJS is available
-      if (typeof window === 'undefined') {
-        throw new Error('PPTX export only works on the client side')
-      }
+      // Navigate to the presentation page so user can use the full export functionality
+      window.open(presentationRoute, '_blank')
 
-      let PptxGenJSModule;
-      try {
-        PptxGenJSModule = await import('pptxgenjs')
-      } catch (importError) {
-        console.error('Failed to import pptxgenjs:', importError)
-        throw new Error('PPTX library could not be loaded. Please ensure pptxgenjs is properly installed.')
-      }
-
-      const pptx = new PptxGenJSModule.default()
-
-      pptx.defineLayout({ name: 'LAYOUT_16x9', width: 10, height: 5.625 })
-      pptx.layout = 'LAYOUT_16x9'
-
-      // Create a title slide
-      const titleSlide = pptx.addSlide()
-      titleSlide.addText(presentationTitle, {
-        x: 0.5, y: 2, w: 9, h: 1.5,
-        fontSize: 44, bold: true, align: 'center',
-        color: '363636'
-      })
-      titleSlide.addText('Technology Transformation Framework', {
-        x: 0.5, y: 3.5, w: 9, h: 0.8,
-        fontSize: 24, align: 'center',
-        color: '666666'
-      })
-
-      // Add a content slide with key points
-      const contentSlide = pptx.addSlide()
-      contentSlide.addText('Key Framework Components', {
-        x: 0.5, y: 0.3, w: 9, h: 0.8,
-        fontSize: 32, bold: true,
-        color: '363636'
-      })
-
-      const keyPoints = [
-        'Consolidated scope visibility and dashboard',
-        'Strategic resource allocation engine',
-        'Capacity planning and optimization',
-        'Implementation roadmap and phases',
-        'Measurement and success metrics'
-      ]
-
-      keyPoints.forEach((point, index) => {
-        contentSlide.addText(`• ${point}`, {
-          x: 0.5, y: 1.5 + (index * 0.6), w: 9, h: 0.5,
-          fontSize: 16,
-          color: '444444'
-        })
-      })
-
-      // Generate and download the PPTX file
-      const fileName = presentationTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()
-      await pptx.writeFile({
-        fileName: fileName
-      })
-
-      console.log(`Successfully exported ${presentationTitle} to PPTX`)
+      // Show helpful message
+      alert(`Opening "${presentationTitle}" in a new tab. Use the "Export PPTX" button on that page to get the complete presentation with all slides and content.`)
 
     } catch (error) {
-      console.error("Error exporting to PPTX:", error)
-      alert(`Error exporting to PPTX: ${error.message}. Please try again or contact support.`)
-    } finally {
-      setIsExporting(false)
+      console.error("Error opening presentation:", error)
+      alert(`Error opening presentation: ${error.message}`)
     }
   }
 
