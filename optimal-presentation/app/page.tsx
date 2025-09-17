@@ -79,6 +79,25 @@ const presentations = [
     status: "Operating Model Design"
   },
   {
+    id: "intake",
+    title: "Intake Process Framework",
+    subtitle: "Strategic Intake Framework with Smart Routing",
+    description: "Comprehensive intake framework with smart routing logic and enhanced stakeholder experience for optimal request management.",
+    route: "/intake",
+    icon: Users,
+    color: "orange",
+    features: [
+      "Smart routing and three-lane system",
+      "Enhanced stakeholder experience design",
+      "Clear routing logic and criteria",
+      "Business value optimization",
+      "Strategic integration approach"
+    ],
+    audience: "Program Managers, Operations Teams, Stakeholders",
+    duration: "~8 slides",
+    status: "Process Framework"
+  },
+  {
     id: "extension",
     title: "Accelerating Your Transformation Journey",
     subtitle: "Implementation Partnership Proposal",
@@ -380,7 +399,7 @@ export default function PresentationHub() {
 
                     <div className="text-center">
                       <div className="text-2xl font-bold text-primary">
-                        {index === 0 ? "5" : index === 1 ? "18" : index === 2 ? "15" : "15"}
+                        {index === 0 ? "5" : index === 1 ? "18" : index === 2 ? "15" : index === 3 ? "8" : "15"}
                       </div>
                       <div className="text-xs text-muted-foreground uppercase tracking-wide">
                         Slides
