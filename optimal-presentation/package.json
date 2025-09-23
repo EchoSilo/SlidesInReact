@@ -6,7 +6,9 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "test:frameworks": "npx ts-node scripts/test-frameworks.ts",
+    "demo:frameworks": "npx ts-node --project tsconfig.scripts.json scripts/test-frameworks-demo.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.63.0",
@@ -71,8 +73,10 @@
     "@types/node": "^22",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "dotenv": "^16.4.5",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
+    "ts-node": "^10.9.2",
     "tw-animate-css": "1.3.3",
     "typescript": "^5"
   }
