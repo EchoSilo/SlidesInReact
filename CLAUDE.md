@@ -6,15 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repository contains multiple AI-generated presentation projects, each showcasing different approaches to creating a "Capacity Management Framework" presentation. The main projects are:
 
-- **lovable/scope-insight-engine-main** - React + Vite + ShadcN UI project with slide-based presentation
+- **reference_apps/lovable/scope-insight-engine-main** - React + Vite + ShadcN UI project with slide-based presentation
 - **optimal-presentation** - Next.js project with modern React components
-- **v0**, **magicpatterns**, **claude** - Additional presentation variations
+- **reference_apps/v0**, **reference_apps/magicpatterns**, **claude** - Additional presentation variations
 
 ## Primary Development Commands
 
 ### Lovable Project (React + Vite)
 ```bash
-cd lovable/scope-insight-engine-main
+cd reference_apps/lovable/scope-insight-engine-main
 npm i
 npm run dev          # Start development server
 npm run build        # Production build
