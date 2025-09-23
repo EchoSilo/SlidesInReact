@@ -8,7 +8,10 @@
     "lint": "next lint",
     "start": "next start",
     "test:frameworks": "npx ts-node scripts/test-frameworks.ts",
-    "demo:frameworks": "npx ts-node --project tsconfig.scripts.json scripts/test-frameworks-demo.ts"
+    "demo:frameworks": "npx ts-node --project tsconfig.scripts.json scripts/test-frameworks-demo.ts",
+    "test:validation": "npx ts-node --project tsconfig.scripts.json scripts/test-validation-api.ts",
+    "test:refinement": "npx ts-node --project tsconfig.scripts.json scripts/test-refinement-engine.ts",
+    "test:integration": "npx ts-node --project tsconfig.scripts.json scripts/test-system-integration.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.63.0",

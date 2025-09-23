@@ -2,15 +2,79 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { generatePrompt } from '@/lib/prompts'
 import { GenerationRequest, GenerationResponse, PresentationData } from '@/lib/types'
+import { RefinementEngine } from '@/lib/validation/refinementEngine'
+import { FrameworkAnalyzer } from '@/lib/validation/frameworkAnalysis'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 })
 
+// Enhanced request interface with validation options
+interface EnhancedGenerationRequest extends GenerationRequest {
+  apiKey?: string
+  useValidation?: boolean
+  validationConfig?: {
+    targetQualityScore?: number
+    maxRefinementRounds?: number
+    minimumImprovement?: number
+  }
+  streamProgress?: boolean
+}
+
+// Enhanced response interface with validation results
+interface EnhancedGenerationResponse extends GenerationResponse {
+  validationResults?: {
+    initialScore?: number
+    finalScore?: number
+    improvement?: number
+    roundsCompleted?: number
+    targetAchieved?: boolean
+    frameworkUsed?: string
+  }
+  processingTime?: number
+}
+
+/**
+ * Performs the complete validation and refinement pipeline
+ */
+async function performValidationPipeline(
+  presentation: PresentationData,
+  request: EnhancedGenerationRequest,
+  apiKey: string
+) {
+  // Create refinement engine with user configuration
+  const refinementConfig = {
+    targetQualityScore: request.validationConfig?.targetQualityScore || 80,
+    maxRefinementRounds: request.validationConfig?.maxRefinementRounds || 3,
+    minimumImprovement: request.validationConfig?.minimumImprovement || 2
+  }
+
+  const refinementEngine = new RefinementEngine(apiKey, refinementConfig)
+
+  // Convert request to GenerationRequest format for validation
+  const originalRequest: GenerationRequest = {
+    prompt: request.prompt,
+    presentation_type: request.presentation_type,
+    slide_count: request.slide_count,
+    audience: request.audience,
+    tone: request.tone
+  }
+
+  // Execute the complete refinement pipeline
+  const result = await refinementEngine.refinePresentation(
+    presentation,
+    originalRequest
+  )
+
+  return result
+}
+
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+
   try {
-    // Parse the request body
-    const body: GenerationRequest & { apiKey?: string } = await request.json()
+    // Parse the request body with enhanced validation options
+    const body: EnhancedGenerationRequest = await request.json()
 
     // Validate required fields
     if (!body.prompt || !body.presentation_type || !body.slide_count) {
@@ -101,12 +165,62 @@ export async function POST(request: NextRequest) {
 
     console.log(`Successfully generated presentation with ${presentationData.slides.length} slides`)
 
-    // Return the successful response
-    return NextResponse.json({
+    // Enhanced response with potential validation
+    let enhancedResponse: EnhancedGenerationResponse = {
       success: true,
       presentation: presentationData,
-      generation_id: generateId()
-    } as GenerationResponse)
+      generation_id: generateId(),
+      processingTime: Date.now() - startTime
+    }
+
+    // Optional validation and refinement pipeline
+    if (body.useValidation === true) {
+      console.log('🔄 Starting validation and refinement pipeline...')
+
+      try {
+        const validationResult = await performValidationPipeline(
+          presentationData,
+          body,
+          apiKey
+        )
+
+        // Add validation results to response
+        enhancedResponse.validationResults = {
+          initialScore: validationResult.initialScore,
+          finalScore: validationResult.finalScore,
+          improvement: validationResult.totalImprovement,
+          roundsCompleted: validationResult.totalRounds,
+          targetAchieved: validationResult.targetAchieved,
+          frameworkUsed: validationResult.frameworkAnalysis.recommendation.primary_framework
+        }
+
+        // Use refined presentation if validation succeeded
+        if (validationResult.finalPresentation) {
+          enhancedResponse.presentation = validationResult.finalPresentation
+        }
+
+        console.log(`✅ Validation completed: ${validationResult.initialScore} → ${validationResult.finalScore} (+${validationResult.totalImprovement} points)`)
+
+      } catch (validationError) {
+        console.error('⚠️ Validation failed, using original presentation:', validationError)
+
+        // Graceful fallback: return original presentation with error info
+        enhancedResponse.validationResults = {
+          initialScore: 0,
+          finalScore: 0,
+          improvement: 0,
+          roundsCompleted: 0,
+          targetAchieved: false,
+          frameworkUsed: 'unknown'
+        }
+      }
+    }
+
+    // Update final processing time
+    enhancedResponse.processingTime = Date.now() - startTime
+
+    // Return the enhanced response
+    return NextResponse.json(enhancedResponse)
 
   } catch (error) {
     console.error('Error generating presentation:', error)

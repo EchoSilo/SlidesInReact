@@ -81,29 +81,29 @@ export interface SlideMetadata {
 export interface PresentationData {
   id: string
   title: string
-  subtitle: string
-  description: string
+  subtitle?: string
+  description?: string
   metadata: PresentationMetadata
   slides: SlideData[]
 }
 
 export interface PresentationMetadata {
   author?: string
-  created_at: string
+  created_at?: string
   presentation_type: string
   target_audience: string
   estimated_duration: number
   slide_count: number
-  tone: string
-  version: string
+  tone?: string
+  version?: string
 }
 
 export interface GenerationRequest {
   prompt: string
-  presentation_type: string
-  slide_count: number
+  presentation_type?: string
+  slide_count?: number
   audience?: string
-  tone: string
+  tone?: string
 }
 
 export interface GenerationResponse {
