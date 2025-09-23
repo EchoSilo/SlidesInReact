@@ -10,6 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Send, Bot, User, Lightbulb, Sparkles, CheckCircle, AlertCircle, ChevronDown } from 'lucide-react'
 import { useSlideChat } from '@/hooks/useSlideChat'
 import { analyzeEditIntent } from '@/lib/slideParser'
+import { ProcessingIndicator } from '@/components/ui/loading'
+import { ErrorDisplay, ConnectionStatus } from '@/components/ui/error-handling'
+import { SmartInput } from '@/components/ui/command-suggestions'
 
 // Helper function to get slide icon based on layout
 function getSlideIcon(layout: string): string {
@@ -54,7 +57,9 @@ export function SlideChat({ slides, currentSlideIndex, onSlideUpdate, onSlideCha
     isProcessing,
     sendMessage,
     switchToSlide,
-    addSystemMessage
+    addSystemMessage,
+    retryLastMessage,
+    isConnected
   } = useSlideChat({
     slides,
     currentSlideIndex,
@@ -102,12 +107,6 @@ export function SlideChat({ slides, currentSlideIndex, onSlideUpdate, onSlideCha
     setInput(suggestion)
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
-  }
 
   return (
     <Card className={`flex flex-col h-full border border-gray-200 shadow-sm ${className || ''}`}>
@@ -117,7 +116,10 @@ export function SlideChat({ slides, currentSlideIndex, onSlideUpdate, onSlideCha
           <Bot className="w-4 h-4 text-white" />
         </div>
         <div className="flex-1">
-          <h3 className="font-medium text-foreground">Slide Editor</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium text-foreground">Slide Editor</h3>
+            <ConnectionStatus isConnected={isConnected} />
+          </div>
 
           {/* Slide Selector */}
           <div className="flex items-center gap-2 mt-1">
@@ -154,59 +156,90 @@ export function SlideChat({ slides, currentSlideIndex, onSlideUpdate, onSlideCha
       {/* Messages Area */}
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex items-start gap-3 ${
-                message.type === 'user' ? 'flex-row-reverse' : ''
-              }`}
-            >
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
-                message.type === 'user'
-                  ? 'bg-primary'
-                  : message.type === 'system'
-                  ? message.content.includes('✅') ? 'bg-green-100' : message.content.includes('❌') ? 'bg-red-100' : 'bg-orange-100'
-                  : 'bg-gradient-to-r from-blue-500 to-purple-600'
-              }`}>
-                {message.type === 'user' ? (
-                  <User className="w-3 h-3 text-white" />
-                ) : message.type === 'system' ? (
-                  message.content.includes('✅') ? (
-                    <CheckCircle className="w-3 h-3 text-green-600" />
-                  ) : message.content.includes('❌') ? (
-                    <AlertCircle className="w-3 h-3 text-red-600" />
-                  ) : (
-                    <Sparkles className="w-3 h-3 text-orange-600" />
-                  )
-                ) : (
-                  <Bot className="w-3 h-3 text-white" />
-                )}
-              </div>
-              <div className={`flex-1 ${message.type === 'user' ? 'text-right' : ''}`}>
-                <div
-                  className={`inline-block p-3 rounded-lg max-w-[85%] ${
-                    message.type === 'user'
-                      ? 'bg-primary text-white'
-                      : message.type === 'system'
-                      ? message.content.includes('✅')
-                        ? 'bg-green-50 text-green-700 border border-green-200'
-                        : message.content.includes('❌')
-                        ? 'bg-red-50 text-red-700 border border-red-200'
-                        : 'bg-orange-50 text-orange-700 border border-orange-200'
-                      : 'bg-gray-50 text-foreground border border-gray-200'
-                  }`}
-                >
-                  <p className="text-sm leading-relaxed">{message.content}</p>
+          {messages.map((message) => {
+            // Handle loading messages
+            if (message.type === 'loading') {
+              return (
+                <div key={message.id} className="flex justify-center">
+                  <ProcessingIndicator message={message.content} />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {message.timestamp.toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </p>
+              )
+            }
+
+            // Handle error messages
+            if (message.type === 'error') {
+              return (
+                <div key={message.id}>
+                  <ErrorDisplay
+                    type={message.errorType || 'unknown'}
+                    message={message.content}
+                    onRetry={message.canRetry ? message.retryAction : undefined}
+                  />
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    {message.timestamp.toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+              )
+            }
+
+            // Handle regular messages
+            return (
+              <div
+                key={message.id}
+                className={`flex items-start gap-3 ${
+                  message.type === 'user' ? 'flex-row-reverse' : ''
+                }`}
+              >
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  message.type === 'user'
+                    ? 'bg-primary'
+                    : message.type === 'system'
+                    ? message.content.includes('✅') ? 'bg-green-100' : message.content.includes('❌') ? 'bg-red-100' : 'bg-orange-100'
+                    : 'bg-gradient-to-r from-blue-500 to-purple-600'
+                }`}>
+                  {message.type === 'user' ? (
+                    <User className="w-3 h-3 text-white" />
+                  ) : message.type === 'system' ? (
+                    message.content.includes('✅') ? (
+                      <CheckCircle className="w-3 h-3 text-green-600" />
+                    ) : message.content.includes('❌') ? (
+                      <AlertCircle className="w-3 h-3 text-red-600" />
+                    ) : (
+                      <Sparkles className="w-3 h-3 text-orange-600" />
+                    )
+                  ) : (
+                    <Bot className="w-3 h-3 text-white" />
+                  )}
+                </div>
+                <div className={`flex-1 ${message.type === 'user' ? 'text-right' : ''}`}>
+                  <div
+                    className={`inline-block p-3 rounded-lg max-w-[85%] ${
+                      message.type === 'user'
+                        ? 'bg-primary text-white'
+                        : message.type === 'system'
+                        ? message.content.includes('✅')
+                          ? 'bg-green-50 text-green-700 border border-green-200'
+                          : message.content.includes('❌')
+                          ? 'bg-red-50 text-red-700 border border-red-200'
+                          : 'bg-orange-50 text-orange-700 border border-orange-200'
+                        : 'bg-gray-50 text-foreground border border-gray-200'
+                    }`}
+                  >
+                    <p className="text-sm leading-relaxed">{message.content}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {message.timestamp.toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
@@ -235,14 +268,17 @@ export function SlideChat({ slides, currentSlideIndex, onSlideUpdate, onSlideCha
       {/* Input Area */}
       <div className="p-4 border-t border-gray-100">
         <div className="flex gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Type your editing request..."
-            disabled={isProcessing}
-            className="flex-1 text-sm"
-          />
+          <div className="flex-1 relative">
+            <SmartInput
+              value={input}
+              onChange={setInput}
+              onSubmit={handleSend}
+              currentSlide={currentSlide}
+              placeholder="Type your editing request..."
+              disabled={isProcessing}
+              className="text-sm"
+            />
+          </div>
           <Button
             onClick={handleSend}
             disabled={!input.trim() || isProcessing}

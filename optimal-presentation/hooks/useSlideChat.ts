@@ -1,12 +1,16 @@
 import { useState, useCallback, useRef } from 'react'
 import { SlideData } from '@/lib/types'
 import { processSlideEdit, generateChangeSummary, EditRequest, AdvancedCommand } from '@/lib/slideParser'
+import { ErrorType } from '@/components/ui/error-handling'
 
 export interface ChatMessage {
   id: string
-  type: 'user' | 'assistant' | 'system'
+  type: 'user' | 'assistant' | 'system' | 'error' | 'loading'
   content: string
   timestamp: Date
+  errorType?: ErrorType
+  canRetry?: boolean
+  retryAction?: () => void
 }
 
 export interface UseSlideChatProps {
@@ -26,6 +30,8 @@ export interface UseSlideChatReturn {
   clearMessages: () => void
   clearSlideMessages: (slideIndex: number) => void
   addSystemMessage: (content: string) => void
+  retryLastMessage: () => Promise<void>
+  isConnected: boolean
 }
 
 export function useSlideChat({
@@ -38,6 +44,8 @@ export function useSlideChat({
   // Store chat messages per slide
   const [chatHistory, setChatHistory] = useState<Record<string, ChatMessage[]>>({})
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isConnected, setIsConnected] = useState(true)
+  const [lastUserMessage, setLastUserMessage] = useState<string>('')
   const messageIdCounter = useRef(0)
 
   // Get current slide data
@@ -77,6 +85,34 @@ export function useSlideChat({
     addMessage('system', content)
   }, [addMessage])
 
+  // Add error message with retry functionality
+  const addErrorMessage = useCallback((
+    content: string,
+    errorType: ErrorType,
+    retryAction?: () => void
+  ) => {
+    const message: ChatMessage = {
+      id: generateMessageId(),
+      type: 'error',
+      content,
+      timestamp: new Date(),
+      errorType,
+      canRetry: !!retryAction,
+      retryAction
+    }
+
+    setChatHistory(prev => ({
+      ...prev,
+      [currentSlideId]: [...(prev[currentSlideId] || []), message]
+    }))
+    return message
+  }, [generateMessageId, currentSlideId])
+
+  // Add loading message
+  const addLoadingMessage = useCallback((content: string) => {
+    return addMessage('loading', content)
+  }, [addMessage])
+
   // Remove a specific message from current slide
   const removeMessage = useCallback((messageId: string) => {
     setChatHistory(prev => ({
@@ -109,26 +145,26 @@ export function useSlideChat({
     }
   }, [slides.length, onSlideChange])
 
-  // Send a user message and process it
-  const sendMessage = useCallback(async (userMessage: string) => {
-    if (!userMessage.trim() || isProcessing) {
-      return
-    }
+  // Process a message with enhanced error handling and retry
+  const processMessage = useCallback(async (userMessage: string): Promise<void> => {
+    setIsProcessing(true)
+    setLastUserMessage(userMessage)
+
+    // Add loading message
+    const loadingMessage = addLoadingMessage('Processing your request...')
 
     try {
-      setIsProcessing(true)
-
-      // Add user message
-      addMessage('user', userMessage.trim())
-
-      // Add thinking message
-      const thinkingMessage = addMessage('system', '🤔 Analyzing your request...')
+      // Check connection
+      setIsConnected(true)
 
       // Get API key from localStorage
       const apiKey = localStorage.getItem('anthropic_api_key')
       if (!apiKey) {
-        removeMessage(thinkingMessage.id)
-        addMessage('assistant', 'API key not found. Please configure your Anthropic API key in Settings.')
+        removeMessage(loadingMessage.id)
+        addErrorMessage(
+          'API key not found. Please configure your Anthropic API key in Settings.',
+          'validation'
+        )
         return
       }
 
@@ -143,8 +179,8 @@ export function useSlideChat({
       // Process the edit
       const result = await processSlideEdit(editRequest, apiKey)
 
-      // Remove thinking message
-      removeMessage(thinkingMessage.id)
+      // Remove loading message
+      removeMessage(loadingMessage.id)
 
       if (result.success) {
         // Handle slide creation (advanced command)
@@ -194,27 +230,69 @@ export function useSlideChat({
         }
 
       } else {
-        // Add error message
+        // Add error message with retry
         const errorContent = result.error || 'Sorry, I couldn\'t process your request. Please try rephrasing it.'
-        addMessage('assistant', `❌ ${errorContent}`)
+        addErrorMessage(
+          errorContent,
+          'api',
+          () => processMessage(userMessage)
+        )
       }
 
     } catch (error) {
       console.error('Chat message processing error:', error)
 
-      // Remove any thinking messages from current slide
-      setChatHistory(prev => ({
-        ...prev,
-        [currentSlideId]: (prev[currentSlideId] || []).filter(msg => !msg.content.includes('🤔'))
-      }))
+      // Remove loading message
+      removeMessage(loadingMessage.id)
 
-      // Add error message
-      addMessage('assistant', '❌ An unexpected error occurred. Please try again.')
+      // Determine error type
+      let errorType: ErrorType = 'unknown'
+      let errorMessage = 'An unexpected error occurred. Please try again.'
+
+      if (error instanceof Error) {
+        if (error.message.includes('fetch') || error.message.includes('network')) {
+          errorType = 'network'
+          errorMessage = 'Network connection failed. Please check your internet connection.'
+          setIsConnected(false)
+        } else if (error.message.includes('API') || error.message.includes('Claude')) {
+          errorType = 'api'
+          errorMessage = 'AI service is temporarily unavailable. Please try again.'
+        }
+      }
+
+      // Add error message with retry
+      addErrorMessage(
+        errorMessage,
+        errorType,
+        () => processMessage(userMessage)
+      )
 
     } finally {
       setIsProcessing(false)
     }
-  }, [currentSlide, currentSlideIndex, onSlideUpdate, isProcessing, addMessage, removeMessage])
+  }, [currentSlide, currentSlideIndex, onSlideUpdate, slides, addLoadingMessage, removeMessage, addErrorMessage, currentSlideId])
+
+  // Send a user message and process it
+  const sendMessage = useCallback(async (userMessage: string) => {
+    if (!userMessage.trim() || isProcessing) {
+      return
+    }
+
+    // Add user message
+    addMessage('user', userMessage.trim())
+
+    // Process the message
+    await processMessage(userMessage.trim())
+  }, [isProcessing, addMessage, processMessage])
+
+  // Retry the last message
+  const retryLastMessage = useCallback(async () => {
+    if (!lastUserMessage || isProcessing) {
+      return
+    }
+
+    await processMessage(lastUserMessage)
+  }, [lastUserMessage, isProcessing, processMessage])
 
   return {
     messages,
@@ -224,6 +302,8 @@ export function useSlideChat({
     switchToSlide,
     clearMessages,
     clearSlideMessages,
-    addSystemMessage
+    addSystemMessage,
+    retryLastMessage,
+    isConnected
   }
 }
