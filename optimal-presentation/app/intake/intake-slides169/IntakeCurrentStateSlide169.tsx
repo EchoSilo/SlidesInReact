@@ -25,29 +25,29 @@ const IntakeCurrentStateSlide169 = () => {
   ];
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header - 20% of height */}
-      <div className="text-center mb-6">
-        <h1 className="text-5xl font-bold text-foreground mb-4">
+    <div className="h-full flex flex-col max-h-full overflow-hidden">
+      {/* Header - Reduced spacing */}
+      <div className="text-center mb-4">
+        <h1 className="text-4xl font-bold text-foreground mb-3">
           The Missing Foundation
         </h1>
-        <p className="text-xl text-muted-foreground">
+        <p className="text-lg text-muted-foreground">
           We have capacity planning capabilities, but inconsistent demand capture limits their effectiveness
         </p>
       </div>
 
-      {/* Main Content - 60% of height */}
-      <div className="grid grid-cols-2 gap-6 flex-1">
+      {/* Main Content - Adjusted for better fit */}
+      <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
         {gaps.map((gap, index) => (
-          <div key={index} className="bg-muted/30 p-6 rounded-xl border border-border/40 flex flex-col justify-center">
-            <div className="text-center mb-4">
-              <div className="bg-destructive/10 p-4 rounded-xl inline-block mb-3">
-                <gap.icon className="w-10 h-10 text-destructive" />
+          <div key={index} className="bg-muted/30 p-4 rounded-xl border border-border/40 flex flex-col justify-center">
+            <div className="text-center">
+              <div className="bg-destructive/10 p-3 rounded-xl inline-block mb-2">
+                <gap.icon className="w-8 h-8 text-destructive" />
               </div>
-              <h3 className="text-lg font-bold text-foreground mb-3">
+              <h3 className="text-base font-bold text-foreground mb-2">
                 {gap.title}
               </h3>
-              <p className="text-foreground/80 text-base leading-relaxed">
+              <p className="text-foreground/80 text-sm leading-relaxed">
                 {gap.description}
               </p>
             </div>
@@ -55,9 +55,9 @@ const IntakeCurrentStateSlide169 = () => {
         ))}
       </div>
 
-      {/* Footer - 20% of height */}
-      <div className="mt-6 p-5 bg-destructive/5 border border-destructive/20 rounded-xl">
-        <p className="text-center text-destructive/80 font-semibold text-lg">
+      {/* Footer - Reduced spacing */}
+      <div className="mt-4 p-4 bg-destructive/5 border border-destructive/20 rounded-xl">
+        <p className="text-center text-destructive/80 font-semibold text-base">
           Result: Can't optimize what you can't see systematically - capacity management needs demand foundation
         </p>
       </div>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
-import html2canvas from "html2canvas";
+import { toPng } from 'html-to-image';
 import { usePptxExport } from '@/hooks/usePptxExport';
 import IntakeTitleSlide169 from "./intake-slides169/IntakeTitleSlide169";
 import IntakeCurrentStateSlide169 from "./intake-slides169/IntakeCurrentStateSlide169";
@@ -67,18 +67,32 @@ export default function IntakePresentation() {
   };
 
   const exportSlideAsPNG = async () => {
-    const slideElement = document.getElementById('intake-slide-content-169');
-    if (slideElement) {
-      const canvas = await html2canvas(slideElement, {
+    try {
+      const slideElement = document.getElementById('intake-slide-content-169');
+      if (!slideElement) {
+        alert('Slide element not found');
+        return;
+      }
+
+      const dataUrl = await toPng(slideElement, {
         backgroundColor: '#ffffff',
-        scale: 2,
-        useCORS: true,
+        pixelRatio: 2,
+        skipAutoScale: true,
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left'
+        }
       });
 
       const link = document.createElement('a');
       link.download = `intake-slide-${currentSlide + 1}-${slides[currentSlide].title.replace(/\s+/g, '-').toLowerCase()}.png`;
-      link.href = canvas.toDataURL();
+      link.href = dataUrl;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error exporting PNG:', error);
+      alert('Error exporting PNG. Please try again.');
     }
   };
 
@@ -95,8 +109,20 @@ export default function IntakePresentation() {
             </div>
           </div>
 
-          {/* Export Buttons */}
-          <div className="absolute top-4 right-4 flex gap-2">
+        </div>
+
+        {/* Navigation Controls */}
+        <div className="flex items-center justify-between mt-6 max-w-7xl mx-auto">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={prevSlide}
+              disabled={currentSlide === 0}
+              className="flex items-center gap-2"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Previous
+            </Button>
             <Button
               variant="outline"
               onClick={exportSlideAsPNG}
@@ -114,19 +140,6 @@ export default function IntakePresentation() {
               Export PPTX
             </Button>
           </div>
-        </div>
-
-        {/* Navigation Controls */}
-        <div className="flex items-center justify-between mt-6 max-w-7xl mx-auto">
-          <Button
-            variant="outline"
-            onClick={prevSlide}
-            disabled={currentSlide === 0}
-            className="flex items-center gap-2"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Previous
-          </Button>
 
           {/* Slide indicators */}
           <div className="flex gap-2">

@@ -17,8 +17,11 @@ import {
   Download,
   FileDown,
   FileImage,
-  FileText
+  FileText,
+  Sparkles,
+  Settings
 } from "lucide-react"
+import { ApiConnectionIndicator } from "@/components/ApiConnectionIndicator"
 
 const presentations = [
   {
@@ -264,146 +267,139 @@ export default function PresentationHub() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <div className="container mx-auto px-6 py-12">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <div className="mb-6">
-            <div className="bg-primary/10 p-4 rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center">
-              <BarChart3 className="w-10 h-10 text-primary" />
-            </div>
+    <div className="min-h-screen bg-white">
+      <div className="container mx-auto px-6 py-6">
+        {/* Top Navigation */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-6">
+            <h1 className="text-xl font-semibold text-foreground">
+              Presentation Hub
+            </h1>
           </div>
-          <h1 className="text-5xl font-bold text-foreground mb-6">
-            Technology Transformation
-          </h1>
-          <h2 className="text-3xl font-semibold text-primary mb-4">
-            Presentation Hub
-          </h2>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed mb-8">
-            Comprehensive presentation suite for technology organization assessment,
-            framework development, and implementation planning
-          </p>
 
-          {/* Export Actions */}
-          <div className="flex justify-center gap-4">
-            <Button
-              onClick={exportToPPTX}
-              disabled={isExporting}
-              className="bg-primary hover:bg-primary/90 text-white px-6 py-3 text-base font-semibold flex items-center gap-3"
-            >
-              <FileDown className="w-5 h-5" />
-              {isExporting ? "Exporting..." : "Export All to PPTX"}
-            </Button>
+          <div className="flex items-center gap-4">
+            <ApiConnectionIndicator showText={true} />
+            <Link href="/settings">
+              <Button variant="outline" size="sm">
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Button>
+            </Link>
           </div>
         </div>
 
+        {/* Quick Actions */}
+        <div className="mb-8 flex gap-4">
+          <Link href="/generate">
+            <Button className="bg-primary hover:bg-primary/90 text-white px-6 py-3 font-medium flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              Generate New Presentation
+            </Button>
+          </Link>
+          <Button
+            onClick={exportToPPTX}
+            disabled={isExporting}
+            variant="outline"
+            className="px-6 py-3 font-medium flex items-center gap-2"
+          >
+            <FileDown className="w-4 h-4" />
+            {isExporting ? "Exporting..." : "Export All to PPTX"}
+          </Button>
+        </div>
+
         {/* Presentations Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {presentations.map((presentation, index) => {
             const IconComponent = presentation.icon;
             return (
               <Card
                 key={presentation.id}
-                className="p-6 bg-white border-2 border-gray-200 hover:shadow-xl transition-all duration-300 hover:border-primary/50 flex flex-col h-full"
+                className="p-4 bg-white border border-gray-200 hover:shadow-md transition-all hover:border-primary/50 flex flex-col h-full"
               >
-                <div className="flex flex-col h-full space-y-6">
+                <div className="flex flex-col h-full space-y-4">
                   {/* Header */}
-                  <div className="text-center">
-                    <div className="bg-primary/10 p-4 rounded-xl w-fit mx-auto mb-4">
-                      <IconComponent className="w-10 h-10 text-primary" />
+                  <div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="bg-primary/10 p-2 rounded-lg">
+                        <IconComponent className="w-5 h-5 text-primary" />
+                      </div>
+                      <div className="bg-primary/10 text-primary px-2 py-1 rounded-md text-xs font-medium">
+                        {presentation.status}
+                      </div>
                     </div>
 
-                    <div className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-medium mb-3 w-fit mx-auto">
-                      {presentation.status}
-                    </div>
-
-                    <h3 className="text-xl font-bold text-foreground mb-2 text-center">
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
                       {presentation.title}
                     </h3>
-                    <p className="text-sm text-primary font-medium mb-3 text-center">
+                    <p className="text-sm text-primary font-medium mb-2">
                       {presentation.subtitle}
                     </p>
-                    <p className="text-sm text-muted-foreground leading-relaxed text-center">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
                       {presentation.description}
                     </p>
                   </div>
 
                   {/* Features */}
                   <div className="flex-1">
-                    <h4 className="font-semibold text-foreground mb-3 text-sm">Key Features</h4>
-                    <ul className="space-y-2">
+                    <ul className="space-y-1">
                       {presentation.features.slice(0, 3).map((feature, idx) => (
                         <li key={idx} className="flex items-start gap-2">
-                          <div className="w-1.5 h-1.5 bg-primary rounded-full mt-1.5 flex-shrink-0"></div>
+                          <div className="w-1 h-1 bg-primary rounded-full mt-2 flex-shrink-0"></div>
                           <span className="text-xs text-muted-foreground">{feature}</span>
                         </li>
                       ))}
                       {presentation.features.length > 3 && (
                         <li className="text-xs text-muted-foreground italic">
-                          +{presentation.features.length - 3} more features
+                          +{presentation.features.length - 3} more
                         </li>
                       )}
                     </ul>
                   </div>
 
                   {/* Meta Info */}
-                  <div className="space-y-2 text-center border-t pt-4">
-                    <div className="flex items-center justify-center gap-1">
-                      <Users className="w-3 h-3 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">
-                        {presentation.audience.split(',')[0]}
-                      </span>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground border-t pt-3">
+                    <div className="flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      <span>{presentation.audience.split(',')[0]}</span>
                     </div>
-                    <div className="flex items-center justify-center gap-1">
-                      <Calendar className="w-3 h-3 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">
-                        {presentation.duration}
-                      </span>
+                    <div className="text-lg font-bold text-primary">
+                      {index === 0 ? "5" : index === 1 ? "18" : index === 2 ? "15" : index === 3 ? "8" : "15"}
                     </div>
                   </div>
 
                   {/* Action */}
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <Link href={presentation.route} className="block">
                       <Button
                         size="sm"
-                        className="w-full bg-primary hover:bg-primary/90 text-white text-sm font-semibold flex items-center justify-center gap-2"
+                        className="w-full bg-primary hover:bg-primary/90 text-white text-sm font-medium flex items-center justify-center gap-2"
                       >
                         View Presentation
-                        <ArrowRight className="w-4 h-4" />
+                        <ArrowRight className="w-3 h-3" />
                       </Button>
                     </Link>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-1">
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="text-xs font-semibold flex items-center justify-center gap-1"
+                        variant="ghost"
+                        className="text-xs flex items-center justify-center gap-1"
                         disabled={isExporting}
                         onClick={() => exportPresentationToPNG(presentation.route, presentation.title)}
                       >
                         <FileImage className="w-3 h-3" />
-                        Export PNG
+                        PNG
                       </Button>
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="text-xs font-semibold flex items-center justify-center gap-1"
+                        variant="ghost"
+                        className="text-xs flex items-center justify-center gap-1"
                         disabled={isExporting}
                         onClick={() => exportPresentationToPPTX(presentation.route, presentation.title)}
                       >
                         <FileText className="w-3 h-3" />
-                        Export PPTX
+                        PPTX
                       </Button>
-                    </div>
-
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">
-                        {index === 0 ? "5" : index === 1 ? "18" : index === 2 ? "15" : index === 3 ? "8" : "15"}
-                      </div>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wide">
-                        Slides
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -412,41 +408,6 @@ export default function PresentationHub() {
           })}
         </div>
 
-        {/* Footer */}
-        <div className="mt-16 text-center">
-          <div className="bg-white rounded-xl p-8 border border-gray-200 max-w-4xl mx-auto">
-            <h3 className="text-xl font-semibold text-foreground mb-4">
-              Complete Technology Transformation Suite
-            </h3>
-            <p className="text-muted-foreground leading-relaxed mb-6">
-              From initial assessment through framework development to successful implementation,
-              this presentation suite provides a comprehensive view of your technology organization transformation journey.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-              <div className="space-y-2">
-                <div className="bg-blue-100 p-3 rounded-full w-12 h-12 mx-auto flex items-center justify-center">
-                  <Eye className="w-6 h-6 text-blue-600" />
-                </div>
-                <h4 className="font-semibold text-foreground">Assessment</h4>
-                <p className="text-sm text-muted-foreground">Current state analysis</p>
-              </div>
-              <div className="space-y-2">
-                <div className="bg-green-100 p-3 rounded-full w-12 h-12 mx-auto flex items-center justify-center">
-                  <Target className="w-6 h-6 text-green-600" />
-                </div>
-                <h4 className="font-semibold text-foreground">Framework</h4>
-                <p className="text-sm text-muted-foreground">Strategic design</p>
-              </div>
-              <div className="space-y-2">
-                <div className="bg-purple-100 p-3 rounded-full w-12 h-12 mx-auto flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-purple-600" />
-                </div>
-                <h4 className="font-semibold text-foreground">Implementation</h4>
-                <p className="text-sm text-muted-foreground">Transformation execution</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )
