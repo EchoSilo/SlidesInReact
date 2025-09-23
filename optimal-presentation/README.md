@@ -1,4 +1,4 @@
-# Capacity Management Framework Presentation
+# SLIDES IN REACT
 
 Interactive Next.js presentation app with advanced export capabilities for capacity management, operational models, and strategic insights.
 
@@ -84,7 +84,24 @@ Each presentation includes:
 - Benefits and ROI analysis
 - Interactive charts and visualizations
 
-## 🚀 Deployment
+## 🐳 Docker Deployment
+
+### Using Docker Compose (Recommended)
+```bash
+cd optimal-presentation
+docker-compose up --build
+```
+
+### Using Docker Directly
+```bash
+cd optimal-presentation
+docker build -t slides-in-react .
+docker run -p 3000:3000 slides-in-react
+```
+
+The application will be available at `http://localhost:3000`
+
+## 🚀 Traditional Deployment
 
 Built for easy deployment on Vercel, Netlify, or any Node.js hosting platform:
 

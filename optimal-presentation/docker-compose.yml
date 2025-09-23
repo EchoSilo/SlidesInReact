@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  optimal-presentation:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    # Uncomment the following lines if you need to mount volumes for development
+    # volumes:
+    #   - .:/app
+    #   - /app/node_modules
+    #   - /app/.next
