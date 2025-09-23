@@ -120,6 +120,21 @@ export class FrameworkAnalyzer {
         jsonStr = jsonStr.replace(/^```\s*/, '').replace(/\s*```$/, '')
       }
 
+      // Clean control characters and problematic sequences
+      jsonStr = jsonStr
+        .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove control characters
+        .replace(/([^\\])\\n/g, '$1 ') // Replace unescaped \n with spaces
+        .replace(/([^\\])\\r/g, '$1 ') // Replace unescaped \r with spaces
+        .replace(/([^\\])\\t/g, '$1 ') // Replace unescaped \t with spaces
+
+      // Try to find JSON block if response has extra text
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        jsonStr = jsonMatch[0]
+      }
+
+      console.log('Attempting to parse cleaned JSON:', jsonStr.substring(0, 200) + '...')
+
       const result = JSON.parse(jsonStr)
 
       // Validate required fields
@@ -131,8 +146,23 @@ export class FrameworkAnalyzer {
 
     } catch (parseError) {
       console.error('Failed to parse framework analysis response:', parseError)
-      console.error('Raw response:', responseText)
-      throw new Error('Failed to parse framework analysis response')
+      console.error('Raw response sample:', responseText.substring(0, 500))
+
+      // Try alternative parsing approach
+      try {
+        // Remove everything that's not JSON-like
+        const cleanedResponse = responseText
+          .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove control characters
+          .replace(/^[^{]*/, '') // Remove everything before first {
+          .replace(/[^}]*$/, '') // Remove everything after last }
+
+        const alternativeResult = JSON.parse(cleanedResponse)
+        console.log('Alternative parsing succeeded')
+        return alternativeResult as FrameworkAnalysisResult
+      } catch (altError) {
+        console.error('Alternative parsing also failed:', altError)
+        throw new Error('Failed to parse framework analysis response')
+      }
     }
   }
 

@@ -92,7 +92,7 @@ export class ValidationAgent {
       targetQualityScore: 80,
       minConfidenceThreshold: 70,
       includeMinorIssues: true,
-      model: 'claude-3-sonnet-20240229',
+      model: 'claude-3-5-sonnet-20241022',
       temperature: 0.3,
       maxTokens: 4000,
       ...config
@@ -330,9 +330,12 @@ export class ValidationAgent {
       suggestions.push(`Focus on ${lowestDimension.dimension}: Currently ${lowestDimension.score}/100`)
     }
 
-    // Add recommendations
+    // Add recommendations with null checks
     analysis.recommendations.slice(0, 3).forEach(rec => {
-      suggestions.push(`${rec.priority.toUpperCase()}: ${rec.title} - ${rec.implementation}`)
+      const priority = rec.priority?.toUpperCase() || 'MEDIUM'
+      const title = rec.title || 'Improvement needed'
+      const implementation = rec.implementation || 'See analysis for details'
+      suggestions.push(`${priority}: ${title} - ${implementation}`)
     })
 
     return suggestions
@@ -517,7 +520,7 @@ export const DEFAULT_VALIDATION_CONFIG: ValidationConfig = {
   targetQualityScore: 80,
   minConfidenceThreshold: 70,
   includeMinorIssues: true,
-  model: 'claude-3-sonnet-20240229',
+  model: 'claude-3-5-sonnet-20241022',
   temperature: 0.3,
   maxTokens: 4000
 }

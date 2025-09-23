@@ -28,7 +28,11 @@
       "Bash(npx tsc:*)",
       "Bash(netstat:*)",
       "Bash(where npm)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(claude mcp:*)",
+      "WebFetch(domain:localhost)",
+      "Bash(dir:*)",
+      "mcp__playwright__browser_fill_form"
     ],
     "deny": [],
     "ask": []

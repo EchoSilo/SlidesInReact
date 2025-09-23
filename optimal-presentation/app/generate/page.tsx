@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,6 +11,8 @@ import { Sparkles, ArrowRight, Settings, FileText, Users, Target, AlertCircle, C
 import { GenerationRequest, GenerationResponse } from "@/lib/types"
 import { ApiConnectionIndicator } from "@/components/ApiConnectionIndicator"
 import { useApiConnection } from "@/hooks/useApiConnection"
+import { ProgressModal, ProgressMessage } from "@/components/ui/progress-modal"
+import { ProgressSimulator } from "@/lib/progress-steps"
 import Link from 'next/link'
 
 const presentationTypes = [
@@ -22,51 +24,105 @@ const presentationTypes = [
   { id: "custom", label: "Custom", description: "Tailored presentation based on your specific needs" }
 ]
 
-const slideCountOptions = [
-  { value: "5", label: "5 slides - Executive Summary" },
-  { value: "8", label: "8 slides - Standard Presentation" },
-  { value: "12", label: "12 slides - Detailed Overview" },
-  { value: "15", label: "15 slides - Comprehensive" },
-  { value: "18", label: "18 slides - Deep Dive" }
+const presentationScopes = [
+  { id: "executive", label: "Executive Summary", description: "High-level overview for senior leadership" },
+  { id: "standard", label: "Standard Presentation", description: "Balanced coverage of key topics" },
+  { id: "detailed", label: "Detailed Overview", description: "Thorough exploration of main concepts" },
+  { id: "comprehensive", label: "Comprehensive", description: "In-depth analysis with supporting details" },
+  { id: "deep_dive", label: "Deep Dive", description: "Exhaustive coverage with extensive detail" }
 ]
 
 export default function GeneratePage() {
   const [prompt, setPrompt] = useState("")
   const [presentationType, setPresentationType] = useState("")
   const [slideCount, setSlideCount] = useState("8")
+  const [presentationScope, setPresentationScope] = useState("")
   const [audience, setAudience] = useState("")
   const [tone, setTone] = useState("professional")
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [progressMessages, setProgressMessages] = useState<ProgressMessage[]>([])
+  const [showProgressModal, setShowProgressModal] = useState(false)
+  const progressSimulatorRef = useRef<ProgressSimulator | null>(null)
 
   const { isConnected, hasApiKey } = useApiConnection()
 
   const handleGenerate = async () => {
-    if (!prompt.trim() || !presentationType) {
-      setError("Please provide a prompt and select a presentation type")
+    if (!prompt.trim() || !presentationType || !presentationScope) {
+      setError("Please provide a prompt, select a presentation type, and choose a presentation scope")
+      return
+    }
+
+    if (!slideCount || parseInt(slideCount) < 3 || parseInt(slideCount) > 30) {
+      setError("Please enter a valid number of slides between 3 and 30")
       return
     }
 
     setIsGenerating(true)
     setError(null)
     setSuccess(null)
+    setProgressMessages([])
+    setShowProgressModal(true)
+
+    // Initialize progress simulator
+    progressSimulatorRef.current = new ProgressSimulator(
+      (message) => {
+        setProgressMessages(prev => {
+          const filtered = prev.filter(m => m.id !== message.id)
+          return [...filtered, message]
+        })
+      },
+      () => {
+        // Progress simulation complete - the actual API call should be finishing around now
+      },
+      (errorMsg) => {
+        setError(errorMsg)
+        setIsGenerating(false)
+      }
+    )
+
+    // Start progress simulation
+    progressSimulatorRef.current.start()
+
+    // Frontend workflow logging
+    const workflowStart = Date.now()
+    console.log("🚀 [FRONTEND] Starting presentation generation workflow", {
+      timestamp: new Date().toISOString(),
+      presentation_type: presentationType,
+      presentation_scope: presentationScope,
+      slide_count: slideCount,
+      audience: audience || 'not specified',
+      tone: tone,
+      prompt_length: prompt.length
+    })
 
     try {
       // Get the stored API key
       const storedApiKey = localStorage.getItem('anthropic_api_key')
+      console.log("🔑 [FRONTEND] API key retrieval", {
+        hasStoredKey: !!storedApiKey,
+        keySource: storedApiKey ? 'localStorage' : 'none'
+      })
 
-      const request: GenerationRequest & { apiKey?: string } = {
+      const request: GenerationRequest & { apiKey?: string; presentation_scope?: string } = {
         prompt: prompt.trim(),
         presentation_type: presentationType,
+        presentation_scope: presentationScope,
         slide_count: parseInt(slideCount),
         audience: audience.trim() || undefined,
         tone,
         apiKey: storedApiKey || undefined
       }
 
-      console.log("Generating presentation with:", request)
+      console.log("📤 [FRONTEND] Sending request to API", {
+        timestamp: new Date().toISOString(),
+        endpoint: '/api/generate',
+        method: 'POST',
+        request_size: JSON.stringify(request).length
+      })
 
+      const apiCallStart = Date.now()
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: {
@@ -75,29 +131,87 @@ export default function GeneratePage() {
         body: JSON.stringify(request),
       })
 
-      const result: GenerationResponse = await response.json()
+      const apiCallDuration = Date.now() - apiCallStart
+      console.log("📥 [FRONTEND] Received API response", {
+        timestamp: new Date().toISOString(),
+        status: response.status,
+        duration_ms: apiCallDuration,
+        response_ok: response.ok
+      })
+
+      const result: GenerationResponse & { workflowLogs?: string } = await response.json()
+
+      // Log the backend workflow logs if available
+      if (result.workflowLogs) {
+        console.log("📊 [BACKEND] Workflow logs received:", JSON.parse(result.workflowLogs))
+        // Store the logs for potential debugging
+        localStorage.setItem('lastGenerationLogs', result.workflowLogs)
+      }
+
+      // Log file path for complete untruncated logs
+      if (result.debugInfo?.logFilePath) {
+        console.log("📁 [BACKEND] Complete logs saved to file:", result.debugInfo.logFilePath)
+        console.log("🔗 [BACKEND] View complete logs at: /api/logs/" + result.generation_id)
+        // Store log file info
+        localStorage.setItem('lastLogFilePath', result.debugInfo.logFilePath)
+        localStorage.setItem('lastGenerationId', result.generation_id)
+      }
 
       if (!result.success) {
+        console.log("❌ [FRONTEND] API returned error", { error: result.error })
         throw new Error(result.error || 'Unknown error occurred')
       }
 
       if (!result.presentation) {
+        console.log("❌ [FRONTEND] No presentation data in response")
         throw new Error('No presentation data received')
       }
+
+      console.log("✅ [FRONTEND] Presentation generated successfully", {
+        timestamp: new Date().toISOString(),
+        title: result.presentation.title,
+        slides_count: result.presentation.slides.length,
+        generation_id: result.generation_id
+      })
 
       // Store the generated presentation in localStorage for Phase 3
       localStorage.setItem('generatedPresentation', JSON.stringify(result.presentation))
 
       setSuccess(`Successfully generated "${result.presentation.title}" with ${result.presentation.slides.length} slides!`)
 
+      const totalWorkflowDuration = Date.now() - workflowStart
+      console.log("🎉 [FRONTEND] Complete workflow finished", {
+        timestamp: new Date().toISOString(),
+        total_duration_ms: totalWorkflowDuration,
+        api_call_duration_ms: apiCallDuration,
+        redirect_in_ms: 3000
+      })
+
+      // Clean up progress simulator
+      if (progressSimulatorRef.current) {
+        progressSimulatorRef.current.cleanup()
+      }
+
       // Redirect to preview page to view the generated presentation
       setTimeout(() => {
+        console.log("🔄 [FRONTEND] Redirecting to preview page")
+        setShowProgressModal(false)
         window.location.href = "/preview"
-      }, 2000)
+      }, 3000)
 
     } catch (error) {
-      console.error("Generation error:", error)
+      const errorDuration = Date.now() - workflowStart
+      console.error("💥 [FRONTEND] Generation workflow failed", {
+        timestamp: new Date().toISOString(),
+        error: error instanceof Error ? error.message : 'Unknown error',
+        duration_ms: errorDuration
+      })
       setError(error instanceof Error ? error.message : "Error generating presentation. Please try again.")
+
+      // Clean up progress simulator on error
+      if (progressSimulatorRef.current) {
+        progressSimulatorRef.current.cleanup()
+      }
     } finally {
       setIsGenerating(false)
     }
@@ -156,56 +270,64 @@ export default function GeneratePage() {
                   <Label className="text-base font-medium text-foreground">
                     Presentation Type
                   </Label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {presentationTypes.map((type) => (
-                      <Card
-                        key={type.id}
-                        className={`p-3 cursor-pointer transition-all border ${
-                          presentationType === type.id
-                            ? "border-primary bg-primary/5"
-                            : "border-gray-200 hover:border-primary/50"
-                        }`}
-                        onClick={() => setPresentationType(type.id)}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-3 h-3 rounded-full ${
-                            presentationType === type.id ? "bg-primary" : "bg-gray-300"
-                          }`} />
-                          <div className="flex-1">
-                            <h3 className="font-medium text-foreground text-sm">
-                              {type.label}
-                            </h3>
-                            <p className="text-xs text-muted-foreground">
-                              {type.description}
-                            </p>
+                  <Select value={presentationType} onValueChange={setPresentationType}>
+                    <SelectTrigger className="text-base">
+                      <SelectValue placeholder="Select presentation type..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {presentationTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.id}>
+                          <div className="flex flex-col items-start">
+                            <span className="font-medium">{type.label}</span>
+                            <span className="text-xs text-muted-foreground">{type.description}</span>
                           </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Number of Slides */}
+                <div className="space-y-3">
+                  <Label htmlFor="slideCount" className="text-base font-medium text-foreground">
+                    Number of Slides
+                  </Label>
+                  <Input
+                    id="slideCount"
+                    type="number"
+                    min="3"
+                    max="30"
+                    placeholder="8"
+                    value={slideCount}
+                    onChange={(e) => setSlideCount(e.target.value)}
+                    className="text-base"
+                  />
+                </div>
+
+                {/* Presentation Scope */}
+                <div className="space-y-3">
+                  <Label className="text-base font-medium text-foreground">
+                    Presentation Scope
+                  </Label>
+                  <Select value={presentationScope} onValueChange={setPresentationScope}>
+                    <SelectTrigger className="text-base">
+                      <SelectValue placeholder="Select presentation scope..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {presentationScopes.map((scope) => (
+                        <SelectItem key={scope.id} value={scope.id}>
+                          <div className="flex flex-col items-start">
+                            <span className="font-medium">{scope.label}</span>
+                            <span className="text-xs text-muted-foreground">{scope.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Configuration Grid */}
                 <div className="grid grid-cols-2 gap-4">
-                  {/* Slide Count */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-foreground">
-                      Slides
-                    </Label>
-                    <Select value={slideCount} onValueChange={setSlideCount}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {slideCountOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
                   {/* Tone */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-foreground">
@@ -223,20 +345,20 @@ export default function GeneratePage() {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
 
-                {/* Audience */}
-                <div className="space-y-2">
-                  <Label htmlFor="audience" className="text-sm font-medium text-foreground">
-                    Target Audience <span className="text-muted-foreground">(optional)</span>
-                  </Label>
-                  <Input
-                    id="audience"
-                    placeholder="e.g., C-Level Executives, Engineering Teams, Board Members"
-                    value={audience}
-                    onChange={(e) => setAudience(e.target.value)}
-                    className="text-base"
-                  />
+                  {/* Audience */}
+                  <div className="space-y-2">
+                    <Label htmlFor="audience-grid" className="text-sm font-medium text-foreground">
+                      Target Audience <span className="text-muted-foreground">(optional)</span>
+                    </Label>
+                    <Input
+                      id="audience-grid"
+                      placeholder="e.g., C-Level Executives"
+                      value={audience}
+                      onChange={(e) => setAudience(e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
                 </div>
 
                 {/* Status Messages */}
@@ -257,7 +379,7 @@ export default function GeneratePage() {
                 {/* Generate Button */}
                 <Button
                   onClick={handleGenerate}
-                  disabled={isGenerating || !prompt.trim() || !presentationType || !isConnected}
+                  disabled={isGenerating || !prompt.trim() || !presentationType || !presentationScope || !slideCount || !isConnected}
                   className="w-full bg-primary hover:bg-primary/90 text-white py-3 text-base font-medium flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isGenerating ? (
@@ -323,6 +445,21 @@ export default function GeneratePage() {
             </Card>
           </div>
         </div>
+
+        {/* Progress Modal */}
+        <ProgressModal
+          open={showProgressModal}
+          onOpenChange={(open) => {
+            if (!open && !isGenerating) {
+              setShowProgressModal(false)
+              setProgressMessages([])
+            }
+          }}
+          title="Generating Your Presentation"
+          messages={progressMessages}
+          isComplete={!!success && !isGenerating}
+          error={error}
+        />
       </div>
     </div>
   )

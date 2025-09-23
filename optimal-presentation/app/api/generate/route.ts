@@ -5,13 +5,13 @@ import { GenerationRequest, GenerationResponse, PresentationData } from '@/lib/t
 import { RefinementEngine } from '@/lib/validation/refinementEngine'
 import { FrameworkAnalyzer, getQuickFrameworkRecommendation } from '@/lib/validation/frameworkAnalysis'
 import { getDefaultAnthropicClient, createAnthropicClient } from '@/lib/anthropic-client'
+import { WorkflowLogger } from '@/lib/workflow-logger'
 
 const anthropic = getDefaultAnthropicClient()
 
-// Enhanced request interface with validation options
+// Enhanced request interface with validation configuration
 interface EnhancedGenerationRequest extends GenerationRequest {
   apiKey?: string
-  useValidation?: boolean
   validationConfig?: {
     targetQualityScore?: number
     maxRefinementRounds?: number
@@ -38,7 +38,9 @@ interface EnhancedGenerationResponse extends GenerationResponse {
     llmModel: string
     responseLength: number
     fallbacksUsed: string[]
+    logFilePath?: string
   }
+  workflowLogs?: string
 }
 
 /**
@@ -77,19 +79,31 @@ async function performValidationPipeline(
 }
 
 export async function POST(request: NextRequest) {
-  const startTime = Date.now()
   const generationId = generateId()
+  const logger = new WorkflowLogger(generationId)
   const fallbacksUsed: string[] = []
 
   try {
-    console.log(`🚀 Generation started: ${generationId}`)
+    logger.info('INITIALIZATION', 'Starting presentation generation workflow')
 
     // Parse the request body with enhanced validation options
     const body: EnhancedGenerationRequest = await request.json()
 
+    logger.info('REQUEST_PARSING', 'Parsed incoming request', {
+      hasPrompt: !!body.prompt,
+      hasApiKey: !!body.apiKey,
+      workflow: 'multi_agent_validation'
+    })
+
     // Validate required fields
     if (!body.prompt || !body.presentation_type || !body.slide_count) {
-      console.log(`❌ Missing required fields for generation ${generationId}`)
+      logger.error('VALIDATION', 'Missing required fields', {
+        missing_fields: {
+          prompt: !body.prompt,
+          presentation_type: !body.presentation_type,
+          slide_count: !body.slide_count
+        }
+      })
       return NextResponse.json({
         success: false,
         error: 'Missing required fields: prompt, presentation_type, slide_count',
@@ -97,10 +111,12 @@ export async function POST(request: NextRequest) {
       } as GenerationResponse, { status: 400 })
     }
 
-    console.log(`✅ Request validated for generation ${generationId}:`, {
+    logger.success('VALIDATION', 'Request validation passed', {
       prompt_length: body.prompt.length,
       presentation_type: body.presentation_type,
-      slide_count: body.slide_count
+      slide_count: body.slide_count,
+      audience: body.audience || 'not specified',
+      tone: body.tone
     })
 
     // Get API key from request body (client-side) or fallback to environment
@@ -108,12 +124,12 @@ export async function POST(request: NextRequest) {
 
     // Log API key source for transparency
     if (body.apiKey) {
-      console.log(`🔑 Using client-provided API key for generation ${generationId}`)
+      logger.info('API_KEY', 'Using client-provided API key')
     } else if (process.env.ANTHROPIC_API_KEY) {
-      console.log(`🔄 FALLBACK: Using server environment API key for generation ${generationId}`)
+      logger.warning('API_KEY', 'Using server environment API key as fallback')
       fallbacksUsed.push('API Key: Client key not provided, using server environment')
     } else {
-      console.log(`❌ No API key available for generation ${generationId}`)
+      logger.error('API_KEY', 'No API key available')
       return NextResponse.json({
         success: false,
         error: 'Anthropic API key not configured',
@@ -121,37 +137,76 @@ export async function POST(request: NextRequest) {
       } as GenerationResponse, { status: 500 })
     }
 
-    // STEP 1: Analyze and select optimal framework FIRST
-    console.log(`🧭 Analyzing framework for generation ${generationId}...`)
-    const frameworkRecommendation = getQuickFrameworkRecommendation(
-      body.presentation_type,
-      body.audience || 'General business audience',
-      body.prompt
+    // STEP 1: AI-driven framework analysis (Multi-Agent)
+    logger.info('FRAMEWORK_ANALYSIS', 'Starting AI-powered framework analysis')
+
+    // Create framework analyzer agent
+    const frameworkAnalyzer = new FrameworkAnalyzer(apiKey)
+
+    // Create initial presentation context for analysis
+    const analysisContext = {
+      prompt: body.prompt,
+      presentation_type: body.presentation_type,
+      slide_count: body.slide_count,
+      audience: body.audience,
+      tone: body.tone
+    }
+
+    // Perform AI framework analysis
+    const frameworkAnalysisStart = Date.now()
+    logger.llmRequest('FRAMEWORK_AGENT',
+      `Analyzing prompt for optimal framework recommendation: ${body.prompt.substring(0, 100)}...`,
+      'claude-3-haiku-20240307',
+      { task: 'framework_analysis', context: analysisContext }
     )
 
-    console.log(`🎯 Framework selected for generation ${generationId}:`, {
+    const frameworkAnalysisResult = await frameworkAnalyzer.quickFrameworkCheck(
+      body.prompt,
+      body.audience || 'General business audience',
+      body.presentation_type
+    )
+
+    const frameworkAnalysisDuration = Date.now() - frameworkAnalysisStart
+    logger.llmResponse('FRAMEWORK_AGENT',
+      { analysis: frameworkAnalysisResult },
+      frameworkAnalysisDuration
+    )
+
+    // Parse framework recommendation from AI analysis
+    const frameworkRecommendation = parseFrameworkFromAIAnalysis(frameworkAnalysisResult, body)
+
+    logger.decision('FRAMEWORK_SELECTION', frameworkRecommendation.framework.name,
+      `AI-driven analysis recommended framework based on content analysis`, {
       framework: frameworkRecommendation.framework.name,
       confidence: frameworkRecommendation.confidence,
-      rationale: frameworkRecommendation.rationale
+      ai_analysis: frameworkAnalysisResult.substring(0, 200) + '...',
+      presentation_type: body.presentation_type,
+      audience: body.audience || 'General business audience'
     })
 
     // STEP 2: Generate framework-specific prompt
-    console.log(`📝 Generating prompt for generation ${generationId}...`)
+    logger.info('PROMPT_GENERATION', 'Generating framework-specific prompt')
     const prompt = generatePrompt(body, frameworkRecommendation.framework)
 
     // Create Anthropic client with the correct API key
-    console.log(`🤖 Calling LLM for generation ${generationId}...`)
+    logger.info('LLM_SETUP', 'Creating Anthropic client and preparing LLM request')
     const anthropicClient = createAnthropicClient(apiKey)
 
     // Call Claude API with detailed logging
     const llmStartTime = Date.now()
     let response: any
 
+    const llmConfig = {
+      model: 'claude-3-haiku-20240307',
+      max_tokens: 4096,
+      temperature: 0.7
+    }
+
+    logger.llmRequest('LLM_REQUEST', prompt, llmConfig.model, llmConfig)
+
     try {
       response = await anthropicClient.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 4096,
-        temperature: 0.7,
+        ...llmConfig,
         messages: [{
           role: 'user',
           content: prompt
@@ -159,21 +214,11 @@ export async function POST(request: NextRequest) {
       })
 
       const llmDuration = Date.now() - llmStartTime
-      console.log(`✅ LLM response received for generation ${generationId}:`, {
-        model: 'claude-3-haiku-20240307',
-        duration_ms: llmDuration,
-        response_length: response.content[0]?.type === 'text' ? response.content[0].text.length : 0,
-        tokens_used: response.usage?.input_tokens ? response.usage.input_tokens + (response.usage.output_tokens || 0) : 'unknown'
-      })
-
-      // Log first 200 characters of response for transparency
-      if (response.content[0]?.type === 'text') {
-        console.log(`📄 LLM Response Preview for ${generationId}:`, response.content[0].text.substring(0, 200) + '...')
-      }
+      logger.llmResponse('LLM_RESPONSE', response, llmDuration)
 
     } catch (error) {
       const llmDuration = Date.now() - llmStartTime
-      console.log(`❌ LLM call failed for generation ${generationId}:`, {
+      logger.error('LLM_REQUEST', 'LLM call failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
         duration_ms: llmDuration
       })
@@ -183,12 +228,12 @@ export async function POST(request: NextRequest) {
     // Extract the response content
     const content = response.content[0]
     if (content.type !== 'text') {
-      console.log(`❌ Unexpected response type for generation ${generationId}:`, content.type)
+      logger.error('RESPONSE_VALIDATION', 'Unexpected response type from LLM', { type: content.type })
       throw new Error('Unexpected response type from Claude API')
     }
 
     // Parse the JSON response with fallback handling
-    console.log(`🔧 Parsing JSON response for generation ${generationId}...`)
+    logger.info('JSON_PARSING', 'Starting JSON parsing of LLM response')
     let presentationData: PresentationData
     let jsonParsingFallbackUsed = false
 
@@ -199,7 +244,7 @@ export async function POST(request: NextRequest) {
       // Check if we need to use markdown cleanup fallback
       if (jsonStr.startsWith('```json') || jsonStr.startsWith('```')) {
         jsonParsingFallbackUsed = true
-        console.log(`🔄 FALLBACK: Cleaning markdown formatting from LLM response for generation ${generationId}`)
+        logger.warning('JSON_PARSING', 'LLM response has markdown formatting, cleaning automatically')
         fallbacksUsed.push('JSON Parsing: LLM returned markdown-wrapped JSON, cleaned automatically')
 
         if (jsonStr.startsWith('```json')) {
@@ -210,14 +255,14 @@ export async function POST(request: NextRequest) {
       }
 
       presentationData = JSON.parse(jsonStr)
-      console.log(`✅ JSON parsed successfully for generation ${generationId}:`, {
+      logger.success('JSON_PARSING', 'JSON parsed successfully', {
         cleaned_json_length: jsonStr.length,
         markdown_cleanup_used: jsonParsingFallbackUsed,
         slides_generated: Array.isArray(presentationData.slides) ? presentationData.slides.length : 0
       })
 
     } catch (parseError) {
-      console.log(`❌ JSON parsing failed for generation ${generationId}:`, {
+      logger.error('JSON_PARSING', 'JSON parsing failed', {
         error: parseError instanceof Error ? parseError.message : 'Unknown parse error',
         raw_response_sample: content.text.substring(0, 500)
       })
@@ -225,13 +270,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Failed to parse generated content. Please try again.',
-        generation_id: generationId
-      } as GenerationResponse, { status: 500 })
+        generation_id: generationId,
+        workflowLogs: logger.exportLogs()
+      } as EnhancedGenerationResponse, { status: 500 })
     }
 
     // Validate the structure
     if (!presentationData.slides || !Array.isArray(presentationData.slides)) {
-      console.log(`❌ Invalid presentation structure for generation ${generationId}:`, {
+      logger.error('STRUCTURE_VALIDATION', 'Invalid presentation structure generated', {
         has_slides: !!presentationData.slides,
         is_array: Array.isArray(presentationData.slides)
       })
@@ -239,18 +285,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Invalid presentation structure generated',
-        generation_id: generationId
-      } as GenerationResponse, { status: 500 })
+        generation_id: generationId,
+        workflowLogs: logger.exportLogs()
+      } as EnhancedGenerationResponse, { status: 500 })
     }
 
-    console.log(`✅ Presentation structure validated for generation ${generationId}`)
+    logger.success('STRUCTURE_VALIDATION', 'Presentation structure validated successfully', {
+      slides_count: presentationData.slides.length,
+      has_title: !!presentationData.title,
+      has_description: !!presentationData.description
+    })
 
     // Enhanced response with potential validation
     let enhancedResponse: EnhancedGenerationResponse = {
       success: true,
       presentation: presentationData,
       generation_id: generationId,
-      processingTime: Date.now() - startTime,
+      processingTime: logger.getElapsedTime(),
       debugInfo: {
         frameworkSelected: frameworkRecommendation.framework.name,
         frameworkConfidence: frameworkRecommendation.confidence,
@@ -258,68 +309,92 @@ export async function POST(request: NextRequest) {
         llmModel: 'claude-3-haiku-20240307',
         responseLength: content.text.length,
         fallbacksUsed: fallbacksUsed
+      },
+      workflowLogs: logger.exportLogs()
+    }
+
+    // Multi-Agent validation and refinement pipeline (DEFAULT WORKFLOW)
+    logger.info('VALIDATION_PIPELINE', 'Starting multi-agent validation and refinement pipeline')
+
+    try {
+      const validationResult = await performValidationPipeline(
+        presentationData,
+        body,
+        apiKey
+      )
+
+      logger.success('VALIDATION_PIPELINE', 'Multi-agent validation completed successfully', {
+        initial_score: validationResult.initialScore,
+        final_score: validationResult.finalScore,
+        improvement: validationResult.totalImprovement,
+        rounds: validationResult.totalRounds,
+        target_achieved: validationResult.targetAchieved,
+        agents_used: ['FrameworkAnalyzer', 'ValidationAgent', 'RefinementEngine']
+      })
+
+      // Add validation results to response
+      enhancedResponse.validationResults = {
+        initialScore: validationResult.initialScore,
+        finalScore: validationResult.finalScore,
+        improvement: validationResult.totalImprovement,
+        roundsCompleted: validationResult.totalRounds,
+        targetAchieved: validationResult.targetAchieved,
+        frameworkUsed: validationResult.frameworkAnalysis.recommendation.primary_framework
+      }
+
+      // Use refined presentation if validation succeeded
+      if (validationResult.finalPresentation) {
+        enhancedResponse.presentation = validationResult.finalPresentation
+        logger.info('REFINEMENT_SUCCESS', 'Using refined presentation from multi-agent pipeline')
+      } else {
+        logger.warning('REFINEMENT_FALLBACK', 'Using original presentation (refinement did not improve quality)')
+      }
+
+    } catch (validationError) {
+      logger.warning('VALIDATION_PIPELINE', 'Multi-agent validation failed, using original presentation', {
+        error: validationError instanceof Error ? validationError.message : 'Unknown validation error'
+      })
+
+      fallbacksUsed.push('Multi-Agent Validation: Pipeline failed, using original presentation')
+      enhancedResponse.debugInfo!.fallbacksUsed = fallbacksUsed
+
+      // Graceful fallback: return original presentation with error info
+      enhancedResponse.validationResults = {
+        initialScore: 0,
+        finalScore: 0,
+        improvement: 0,
+        roundsCompleted: 0,
+        targetAchieved: false,
+        frameworkUsed: 'unknown'
       }
     }
 
-    // Optional validation and refinement pipeline
-    if (body.useValidation === true) {
-      console.log(`🔍 Starting validation pipeline for generation ${generationId}...`)
+    logger.success('COMPLETION', 'Multi-agent generation workflow completed successfully', {
+      total_duration_ms: logger.getElapsedTime(),
+      final_slide_count: enhancedResponse.presentation.slides.length,
+      ai_framework_analysis: true,
+      multi_agent_validation: true,
+      fallbacks_used: fallbacksUsed.length
+    })
 
-      try {
-        const validationResult = await performValidationPipeline(
-          presentationData,
-          body,
-          apiKey
-        )
+    // Finalize log file with summary
+    logger.finalizeLogFile()
 
-        console.log(`✅ Validation completed for generation ${generationId}:`, {
-          initial_score: validationResult.initialScore,
-          final_score: validationResult.finalScore,
-          improvement: validationResult.totalImprovement,
-          rounds: validationResult.totalRounds
-        })
-
-        // Add validation results to response
-        enhancedResponse.validationResults = {
-          initialScore: validationResult.initialScore,
-          finalScore: validationResult.finalScore,
-          improvement: validationResult.totalImprovement,
-          roundsCompleted: validationResult.totalRounds,
-          targetAchieved: validationResult.targetAchieved,
-          frameworkUsed: validationResult.frameworkAnalysis.recommendation.primary_framework
-        }
-
-        // Use refined presentation if validation succeeded
-        if (validationResult.finalPresentation) {
-          enhancedResponse.presentation = validationResult.finalPresentation
-        }
-
-      } catch (validationError) {
-        console.log(`🔄 FALLBACK: Validation failed for generation ${generationId}, using original presentation:`,
-          validationError instanceof Error ? validationError.message : 'Unknown validation error')
-
-        fallbacksUsed.push('Validation: Validation pipeline failed, using original presentation')
-        enhancedResponse.debugInfo!.fallbacksUsed = fallbacksUsed
-
-        // Graceful fallback: return original presentation with error info
-        enhancedResponse.validationResults = {
-          initialScore: 0,
-          finalScore: 0,
-          improvement: 0,
-          roundsCompleted: 0,
-          targetAchieved: false,
-          frameworkUsed: 'unknown'
-        }
-      }
-    }
-
-    console.log(`🎉 Generation completed successfully: ${generationId} (${Date.now() - startTime}ms)`)
+    // Update logs in response before returning
+    enhancedResponse.workflowLogs = logger.exportLogs()
+    enhancedResponse.debugInfo!.logFilePath = logger.getLogFilePath()
 
     // Return the enhanced response
     return NextResponse.json(enhancedResponse)
 
   } catch (error) {
-    console.log(`💥 Generation failed: ${generationId}`, error)
+    logger.error('WORKFLOW_ERROR', 'Generation workflow failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    })
+
+    // Finalize log file even on error
+    logger.finalizeLogFile()
 
     // Handle specific Anthropic API errors
     if (error instanceof Anthropic.APIError) {
@@ -328,19 +403,90 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: `API Error: ${error.message}`,
-        generation_id: generationId
-      } as GenerationResponse, { status: error.status || 500 })
+        generation_id: generationId,
+        workflowLogs: logger.exportLogs(),
+        debugInfo: {
+          logFilePath: logger.getLogFilePath(),
+          frameworkSelected: 'unknown',
+          frameworkConfidence: 0,
+          frameworkRationale: 'Error occurred before framework analysis',
+          llmModel: 'unknown',
+          responseLength: 0,
+          fallbacksUsed: fallbacksUsed
+        }
+      } as EnhancedGenerationResponse, { status: error.status || 500 })
     }
 
     // Generic error response
     return NextResponse.json({
       success: false,
       error: 'An unexpected error occurred while generating the presentation',
-      generation_id: generationId
-    } as GenerationResponse, { status: 500 })
+      generation_id: generationId,
+      workflowLogs: logger.exportLogs(),
+      debugInfo: {
+        logFilePath: logger.getLogFilePath(),
+        frameworkSelected: 'unknown',
+        frameworkConfidence: 0,
+        frameworkRationale: 'Error occurred during generation',
+        llmModel: 'unknown',
+        responseLength: 0,
+        fallbacksUsed: fallbacksUsed
+      }
+    } as EnhancedGenerationResponse, { status: 500 })
   }
 }
 
 function generateId(): string {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9)
+}
+
+/**
+ * Parse framework recommendation from AI analysis response
+ */
+function parseFrameworkFromAIAnalysis(aiResponse: string, context: any) {
+  // Import the framework utilities
+  const { getFramework } = require('@/lib/validation/supportedFrameworks')
+
+  // Simple parsing - look for framework names in AI response
+  const frameworkNames = ['scqa', 'prep', 'star', 'pyramid', 'comparison']
+  let recommendedFramework = 'scqa' // default
+  let confidence = 75
+
+  const responseText = aiResponse.toLowerCase()
+
+  // Look for explicit framework recommendations
+  for (const framework of frameworkNames) {
+    if (responseText.includes(framework)) {
+      recommendedFramework = framework
+      confidence = 85
+      break
+    }
+  }
+
+  // Look for patterns that suggest specific frameworks
+  if (responseText.includes('situation') && responseText.includes('complication')) {
+    recommendedFramework = 'scqa'
+    confidence = 90
+  } else if (responseText.includes('point') && responseText.includes('reason')) {
+    recommendedFramework = 'prep'
+    confidence = 90
+  } else if (responseText.includes('situation') && responseText.includes('action')) {
+    recommendedFramework = 'star'
+    confidence = 90
+  } else if (responseText.includes('conclusion') && responseText.includes('support')) {
+    recommendedFramework = 'pyramid'
+    confidence = 90
+  } else if (responseText.includes('compare') || responseText.includes('criteria')) {
+    recommendedFramework = 'comparison'
+    confidence = 90
+  }
+
+  const framework = getFramework(recommendedFramework)
+
+  return {
+    framework,
+    confidence,
+    rationale: `AI analysis recommended ${framework.name} framework based on content analysis`,
+    aiAnalysis: aiResponse
+  }
 }
