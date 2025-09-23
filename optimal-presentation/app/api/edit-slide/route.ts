@@ -130,7 +130,7 @@ async function callClaudeAPI(prompt: string, apiKey: string): Promise<any> {
     },
     body: JSON.stringify({
       model: 'claude-3-haiku-20240307',
-      max_tokens: 1000,
+      max_tokens: 4096,
       messages: [
         {
           role: 'user',

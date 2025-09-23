@@ -48,9 +48,7 @@ export class FrameworkAnalyzer {
   private anthropic: Anthropic
 
   constructor(apiKey: string) {
-    this.anthropic = new Anthropic({
-      apiKey: apiKey
-    })
+    this.anthropic = require('@/lib/anthropic-client').createAnthropicClient(apiKey)
   }
 
   /**
@@ -71,7 +69,7 @@ export class FrameworkAnalyzer {
 
       const response = await this.anthropic.messages.create({
         model: 'claude-3-haiku-20240307',
-        max_tokens: 2000,
+        max_tokens: 4096,
         temperature: 0.3, // Lower temperature for more consistent analysis
         messages: [{
           role: 'user',
@@ -277,7 +275,7 @@ export class FrameworkAnalyzer {
 
       const response = await this.anthropic.messages.create({
         model: 'claude-3-haiku-20240307',
-        max_tokens: 1000,
+        max_tokens: 4096,
         temperature: 0.2,
         messages: [{
           role: 'user',

@@ -2,6 +2,7 @@
 
 import { useApiConnection } from '@/hooks/useApiConnection'
 import { CheckCircle, XCircle, AlertTriangle, Loader2 } from 'lucide-react'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 
 interface ApiConnectionIndicatorProps {
   showText?: boolean
@@ -25,20 +26,35 @@ export function ApiConnectionIndicator({ showText = true }: ApiConnectionIndicat
 
   const getStatusText = () => {
     if (isValidating) return 'Connecting...'
-    if (isConnected) return 'Connected'
+    if (isConnected) return 'Claude 3'
     if (error) return 'Connection failed'
     if (!hasApiKey) return 'Not configured'
     return 'Disconnected'
   }
 
+  const getTooltipText = () => {
+    if (isValidating) return 'Connecting to Claude API...'
+    if (isConnected) return 'Connected to Claude 3 API'
+    if (error) return `Connection failed: ${error}`
+    if (!hasApiKey) return 'API key not configured'
+    return 'Disconnected from Claude API'
+  }
+
   return (
-    <div className="flex items-center gap-2">
-      {getStatusIcon()}
-      {showText && (
-        <span className="text-sm text-muted-foreground">
-          {getStatusText()}
-        </span>
-      )}
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="flex items-center gap-2">
+          {getStatusIcon()}
+          {showText && (
+            <span className="text-sm text-muted-foreground">
+              {getStatusText()}
+            </span>
+          )}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent>
+        {getTooltipText()}
+      </TooltipContent>
+    </Tooltip>
   )
 }

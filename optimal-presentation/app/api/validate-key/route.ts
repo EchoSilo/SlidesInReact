@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { createAnthropicClient } from '@/lib/anthropic-client'
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,9 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Test the API key with a simple request
-    const anthropic = new Anthropic({
-      apiKey: apiKey.trim(),
-    })
+    const anthropic = createAnthropicClient(apiKey.trim())
 
     try {
       // Make a minimal request to validate the key
@@ -46,18 +45,31 @@ export async function POST(request: NextRequest) {
     } catch (apiError: any) {
       console.error('API key validation error:', apiError)
 
-      // Parse specific Anthropic errors
-      if (apiError?.status === 401) {
+      // Handle connection errors (TLS, network issues)
+      if (apiError.constructor.name === 'APIConnectionError' ||
+          apiError.cause?.code === 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY' ||
+          apiError.message?.includes('Connection error')) {
+        return NextResponse.json({
+          valid: false,
+          error: 'Network connection error. This may be due to corporate firewall or TLS certificate issues. Please check your network settings or contact your IT administrator.'
+        }, { status: 503 })
+      }
+
+      // Parse specific Anthropic errors - handle both direct status and nested error structure
+      const status = apiError?.status || apiError?.error?.status
+      const errorType = apiError?.error?.error?.type || apiError?.type
+
+      if (status === 401 || errorType === 'authentication_error') {
         return NextResponse.json({
           valid: false,
           error: 'Invalid API key. Please check your Anthropic API key.'
         }, { status: 401 })
-      } else if (apiError?.status === 429) {
+      } else if (status === 429) {
         return NextResponse.json({
           valid: false,
           error: 'Rate limit exceeded. Your API key is valid but you\'ve hit usage limits.'
         }, { status: 429 })
-      } else if (apiError?.status === 403) {
+      } else if (status === 403) {
         return NextResponse.json({
           valid: false,
           error: 'Access forbidden. Your API key may not have the required permissions.'
@@ -65,7 +77,7 @@ export async function POST(request: NextRequest) {
       } else {
         return NextResponse.json({
           valid: false,
-          error: `API error: ${apiError?.message || 'Unknown error occurred'}`
+          error: `API error: ${apiError?.message || apiError?.error?.error?.message || 'Unknown error occurred'}`
         }, { status: 500 })
       }
     }

@@ -77,7 +77,7 @@ export class ValidationAgent {
   private config: ValidationConfig
 
   constructor(apiKey: string, config: Partial<ValidationConfig> = {}) {
-    this.anthropic = new Anthropic({ apiKey })
+    this.anthropic = require('@/lib/anthropic-client').createAnthropicClient(apiKey)
     this.frameworkAnalyzer = new FrameworkAnalyzer(apiKey)
     this.contentAnalyzer = new ContentAnalyzer({
       audienceLevel: 'executive',
@@ -454,7 +454,7 @@ export class ValidationAgent {
 
         const response = await this.anthropic.messages.create({
           model: 'claude-3-haiku-20240307',
-          max_tokens: 1000,
+          max_tokens: 4096,
           temperature: 0.3,
           messages: [{ role: 'user', content: prompt }]
         })

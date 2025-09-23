@@ -9,6 +9,15 @@ import { generatePrompt } from '@/lib/prompts'
 import { GenerationRequest, PresentationData } from '@/lib/types'
 import { RefinementEngine } from '@/lib/validation/refinementEngine'
 import { getQuickFrameworkRecommendation } from '@/lib/validation/frameworkAnalysis'
+import { createAnthropicClient } from '@/lib/anthropic-client'
+import {
+  presentationLogger,
+  logGenerationStart,
+  logFrameworkSelection,
+  logLLMCall,
+  logFallbackUsed,
+  logValidationComplete
+} from '@/lib/logging/presentationLogger'
 
 // Enhanced request interface for streaming
 interface StreamingGenerationRequest extends GenerationRequest {
@@ -112,6 +121,9 @@ async function performStreamingGeneration(
   encoder: TextEncoder
 ) {
   const generationId = generateId()
+
+  // Initialize logging for streaming generation
+  const logContext = logGenerationStart(generationId, undefined)
 
   try {
     // Send initial progress
@@ -264,6 +276,9 @@ async function generatePresentation(
   request: StreamingGenerationRequest,
   apiKey: string
 ): Promise<PresentationData> {
+  // Log framework analysis step
+  presentationLogger.logStep('framework-analysis', 'started')
+
   // Get framework recommendation first
   const frameworkRecommendation = getQuickFrameworkRecommendation(
     request.presentation_type,
@@ -271,15 +286,35 @@ async function generatePresentation(
     request.prompt
   )
 
+  // Log framework selection
+  logFrameworkSelection(
+    frameworkRecommendation.framework.name,
+    frameworkRecommendation.confidence,
+    frameworkRecommendation.rationale
+  )
+
+  presentationLogger.logStep('framework-analysis', 'completed', {
+    selected_framework: frameworkRecommendation.framework.name,
+    confidence: frameworkRecommendation.confidence
+  })
+
   console.log('Stream generation using framework:', frameworkRecommendation.framework.name)
 
+  // Generate prompt
+  presentationLogger.logStep('prompt-generation', 'started')
   const prompt = generatePrompt(request, frameworkRecommendation.framework)
+  presentationLogger.logStep('prompt-generation', 'completed', {
+    prompt_length: prompt.length
+  })
 
-  const anthropic = new Anthropic({ apiKey })
+  // LLM call with logging
+  presentationLogger.logStep('llm-generation', 'started')
+  const anthropic = createAnthropicClient(apiKey)
 
+  const llmStartTime = Date.now()
   const response = await anthropic.messages.create({
     model: 'claude-3-haiku-20240307',
-    max_tokens: 4000,
+    max_tokens: 4096,
     temperature: 0.7,
     messages: [{
       role: 'user',
@@ -287,27 +322,77 @@ async function generatePresentation(
     }]
   })
 
+  const llmDuration = Date.now() - llmStartTime
   const content = response.content[0]
+
   if (content.type !== 'text') {
+    presentationLogger.logStep('llm-generation', 'failed', {
+      content_type: content.type
+    }, 'Unexpected response type from Claude API')
     throw new Error('Unexpected response type from Claude API')
   }
 
-  // Parse JSON response
-  let jsonStr = content.text.trim()
+  // Log successful LLM interaction
+  logLLMCall(
+    'claude-3-haiku-20240307',
+    'presentation-generation',
+    prompt,
+    content.text,
+    llmDuration,
+    true,
+    undefined,
+    response.usage?.input_tokens ? response.usage.input_tokens + (response.usage.output_tokens || 0) : undefined,
+    0.7
+  )
 
-  // Remove markdown code block markers
-  if (jsonStr.startsWith('```json')) {
-    jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/, '')
-  } else if (jsonStr.startsWith('```')) {
-    jsonStr = jsonStr.replace(/^```\s*/, '').replace(/\s*```$/, '')
+  presentationLogger.logStep('llm-generation', 'completed', {
+    duration_ms: llmDuration,
+    response_length: content.text.length,
+    tokens_used: response.usage?.input_tokens ? response.usage.input_tokens + (response.usage.output_tokens || 0) : undefined
+  })
+
+  // Parse JSON response with logging
+  presentationLogger.logStep('json-parsing', 'started', {
+    raw_response_length: content.text.length
+  })
+
+  let jsonStr = content.text.trim()
+  let jsonParsingFallbackUsed = false
+
+  // Remove markdown code block markers if needed
+  if (jsonStr.startsWith('```json') || jsonStr.startsWith('```')) {
+    jsonParsingFallbackUsed = true
+    logFallbackUsed(
+      'json-parser',
+      'LLM returned markdown-wrapped JSON',
+      'markdown cleanup',
+      'minor',
+      'Cleaned markdown formatting from LLM response'
+    )
+
+    if (jsonStr.startsWith('```json')) {
+      jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/, '')
+    } else if (jsonStr.startsWith('```')) {
+      jsonStr = jsonStr.replace(/^```\s*/, '').replace(/\s*```$/, '')
+    }
   }
 
   const presentationData = JSON.parse(jsonStr)
 
   // Validate structure
   if (!presentationData.slides || !Array.isArray(presentationData.slides)) {
+    presentationLogger.logStep('json-parsing', 'failed', {
+      has_slides: !!presentationData.slides,
+      is_array: Array.isArray(presentationData.slides)
+    }, 'Invalid presentation structure generated')
     throw new Error('Invalid presentation structure generated')
   }
+
+  presentationLogger.logStep('json-parsing', 'completed', {
+    cleaned_json_length: jsonStr.length,
+    markdown_cleanup_used: jsonParsingFallbackUsed,
+    slides_generated: presentationData.slides.length
+  })
 
   return presentationData
 }

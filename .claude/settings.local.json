@@ -21,7 +21,14 @@
       "Bash(npm install)",
       "Bash(npm install:*)",
       "Bash(npm run test:integration:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(curl:*)",
+      "Bash(set)",
+      "Bash(findstr:*)",
+      "Bash(npx tsc:*)",
+      "Bash(netstat:*)",
+      "Bash(where npm)",
+      "Bash(cd:*)"
     ],
     "deny": [],
     "ask": []
