@@ -28,7 +28,7 @@ export function TitleSlide({ slide, isEditing, onEdit }: TitleSlideProps) {
       <div className="space-y-4">
         <EditableText
           text={slide.title}
-          className="text-6xl font-bold bg-gradient-to-r from-primary to-primary-light bg-clip-text text-transparent leading-tight"
+          className="text-4xl font-bold bg-gradient-to-r from-primary to-primary-light bg-clip-text text-transparent leading-tight"
           isEditing={isEditing}
           onEdit={(value) => handleEdit('title', value)}
           placeholder="Enter presentation title..."
