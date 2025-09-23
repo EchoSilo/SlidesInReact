@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { usePresentationData } from '@/hooks/usePresentationData'
 import { DynamicSlide } from '@/components/dynamic-slides/DynamicSlide'
+import { SlideChat } from '@/components/SlideChat'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
@@ -17,7 +18,9 @@ import {
   Plus,
   Trash2,
   Copy,
-  Home
+  Home,
+  MessageCircle,
+  X as CloseIcon
 } from 'lucide-react'
 import Link from 'next/link'
 import { exportToPNG, exportToPPTX } from '@/lib/exportUtils'
@@ -47,6 +50,7 @@ export default function PreviewPage() {
   } = usePresentationData()
 
   const [isExporting, setIsExporting] = useState(false)
+  const [showChat, setShowChat] = useState(false)
 
   if (!presentation) {
     return (
@@ -160,6 +164,15 @@ export default function PreviewPage() {
               {isEditing ? 'Exit Edit' : 'Edit'}
             </Button>
 
+            <Button
+              onClick={() => setShowChat(!showChat)}
+              variant={showChat ? "default" : "ghost"}
+              size="sm"
+            >
+              <MessageCircle className="w-4 h-4 mr-1" />
+              Chat
+            </Button>
+
             <div className="flex gap-1">
               <Button
                 onClick={() => handleExport('png')}
@@ -182,9 +195,9 @@ export default function PreviewPage() {
         </div>
 
         {/* Main Content */}
-        <div className="grid grid-cols-12 gap-6">
+        <div className={`grid gap-6 ${showChat ? 'grid-cols-12' : 'grid-cols-12'}`}>
           {/* Slide Thumbnails */}
-          <div className="col-span-3">
+          <div className={showChat ? 'col-span-2' : 'col-span-3'}>
             <Card className="p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-medium text-foreground text-sm">
@@ -214,14 +227,14 @@ export default function PreviewPage() {
                     }`}
                     onClick={() => goToSlide(index)}
                   >
-                    <div className="text-xs font-medium text-foreground mb-1 truncate">
-                      {index + 1}. {slide.title}
+                    <div className={`text-xs font-medium text-foreground mb-1 truncate ${showChat ? 'text-[10px]' : ''}`}>
+                      {index + 1}. {showChat ? slide.title.substring(0, 15) + '...' : slide.title}
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className={`text-xs text-muted-foreground ${showChat ? 'text-[9px]' : ''}`}>
                       {slide.layout}
                     </div>
 
-                    {isEditing && (
+                    {isEditing && !showChat && (
                       <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                         <Button
                           onClick={(e) => {
@@ -256,7 +269,7 @@ export default function PreviewPage() {
           </div>
 
           {/* Current Slide */}
-          <div className="col-span-9 space-y-4">
+          <div className={`space-y-4 ${showChat ? 'col-span-6' : 'col-span-9'}`}>
             <Card className="p-0 overflow-hidden border border-gray-200 shadow-sm">
               <div
                 id="current-slide"
@@ -316,6 +329,20 @@ export default function PreviewPage() {
               </Button>
             </div>
           </div>
+
+          {/* Chat Panel */}
+          {showChat && currentSlide && (
+            <div className="col-span-4">
+              <div className="sticky top-6">
+                <SlideChat
+                  slide={currentSlide}
+                  slideIndex={currentSlideIndex}
+                  onSlideUpdate={updateSlide}
+                  className="h-[calc(100vh-12rem)]"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
