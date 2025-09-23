@@ -12,7 +12,10 @@
       "Bash(where bash)",
       "Bash(npm run dev:*)",
       "Bash(where git)",
-      "mcp__sequential-thinking__sequentialthinking"
+      "mcp__sequential-thinking__sequentialthinking",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_wait_for"
     ],
     "deny": [],
     "ask": []
