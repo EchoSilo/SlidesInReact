@@ -8,6 +8,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { generatePrompt } from '@/lib/prompts'
 import { GenerationRequest, PresentationData } from '@/lib/types'
 import { RefinementEngine } from '@/lib/validation/refinementEngine'
+import { getQuickFrameworkRecommendation } from '@/lib/validation/frameworkAnalysis'
 
 // Enhanced request interface for streaming
 interface StreamingGenerationRequest extends GenerationRequest {
@@ -263,7 +264,16 @@ async function generatePresentation(
   request: StreamingGenerationRequest,
   apiKey: string
 ): Promise<PresentationData> {
-  const prompt = generatePrompt(request)
+  // Get framework recommendation first
+  const frameworkRecommendation = getQuickFrameworkRecommendation(
+    request.presentation_type,
+    request.audience || 'General business audience',
+    request.prompt
+  )
+
+  console.log('Stream generation using framework:', frameworkRecommendation.framework.name)
+
+  const prompt = generatePrompt(request, frameworkRecommendation.framework)
 
   const anthropic = new Anthropic({ apiKey })
 

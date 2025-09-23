@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { generatePrompt } from '@/lib/prompts'
 import { GenerationRequest, GenerationResponse, PresentationData } from '@/lib/types'
 import { RefinementEngine } from '@/lib/validation/refinementEngine'
-import { FrameworkAnalyzer } from '@/lib/validation/frameworkAnalysis'
+import { FrameworkAnalyzer, getQuickFrameworkRecommendation } from '@/lib/validation/frameworkAnalysis'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -97,15 +97,32 @@ export async function POST(request: NextRequest) {
       } as GenerationResponse, { status: 500 })
     }
 
-    // Generate the prompt
-    const prompt = generatePrompt(body)
-
-    console.log('Generating presentation with prompt:', {
+    // STEP 1: Analyze and select optimal framework FIRST
+    console.log('Analyzing optimal framework for presentation:', {
       type: body.presentation_type,
       slideCount: body.slide_count,
       audience: body.audience,
       tone: body.tone
     })
+
+    // Get framework recommendation using quick heuristic method
+    // This analyzes the user request and selects the optimal framework
+    const frameworkRecommendation = getQuickFrameworkRecommendation(
+      body.presentation_type,
+      body.audience || 'General business audience',
+      body.prompt
+    )
+
+    console.log('Selected framework:', {
+      framework: frameworkRecommendation.framework.name,
+      confidence: frameworkRecommendation.confidence,
+      rationale: frameworkRecommendation.rationale
+    })
+
+    // STEP 2: Generate framework-specific prompt
+    const prompt = generatePrompt(body, frameworkRecommendation.framework)
+
+    console.log('Generating presentation with framework-specific prompt')
 
     // Create Anthropic client with the correct API key
     const anthropicClient = new Anthropic({

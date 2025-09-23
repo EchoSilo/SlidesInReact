@@ -1,68 +1,41 @@
 import { GenerationRequest } from './types'
+import { Framework } from './validation/supportedFrameworks'
 
 export const SYSTEM_PROMPT = `You are an expert presentation designer and business consultant. You create professional, engaging presentations for business and technical audiences.
 
 Your task is to generate structured slide content based on user requirements. Always respond with valid JSON matching the PresentationData schema.
 
-STRUCTURAL FRAMEWORKS:
-Use the SCQA framework for overall presentation flow:
-- Situation: Establish current context and environment
-- Complication: Identify the core problem or challenge
-- Question: Frame the critical question that needs answering
-- Answer: Provide your solution or recommendation
-
-For individual slide content, use the PREP structure:
-- Point: Lead with your main message
-- Reason: Support with clear rationale
-- Example: Illustrate with concrete examples or data
-- Point: Reinforce the main message
-
 Key principles:
 - Keep slides focused and digestible
 - Use clear, actionable language
 - Include relevant business value
-- Structure content logically following SCQA flow
+- Structure content logically following the specified framework
 - Adapt tone to audience
-- Include speaker notes for complex slides
-
-For each slide type:
-- Title: Strong hook, clear value proposition
-- Problem: Pain points with business impact (Complication in SCQA)
-- Solution: Clear benefits and differentiation (Answer in SCQA)
-- Framework: Structured approach with components
-- Implementation: Phased approach with timelines
-- Benefits: Quantifiable outcomes
-- Next Steps: Clear, actionable items`
+- Include speaker notes for complex slides`
 
 export const PRESENTATION_TYPE_PROMPTS = {
   business: {
     focus: "Business value, ROI, strategic alignment, stakeholder benefits",
-    structure: "Situation (Current Business Context) → Complication (Business Challenge) → Question (Strategic Decision) → Answer (Proposed Solution) → Implementation",
     tone: "Professional, persuasive, executive-focused"
   },
   technical: {
     focus: "Architecture, implementation details, technical feasibility, standards",
-    structure: "Situation (Current Architecture) → Complication (Technical Challenges) → Question (Technical Requirements) → Answer (Technical Solution) → Validation",
     tone: "Detailed, technical, solution-oriented"
   },
   process: {
     focus: "Workflow optimization, efficiency gains, process improvements",
-    structure: "Situation (Current Process) → Complication (Process Problems) → Question (Optimization Goals) → Answer (Improved Process) → Implementation",
     tone: "Process-focused, improvement-oriented, systematic"
   },
   transformation: {
     focus: "Organizational change, strategy, transformation roadmap, change management",
-    structure: "Situation (Current State) → Complication (Change Drivers) → Question (Transformation Needs) → Answer (Strategy & Roadmap) → Success Metrics",
     tone: "Strategic, visionary, change-focused"
   },
   capacity: {
     focus: "Resource allocation, capacity planning, optimization, strategic prioritization",
-    structure: "Situation (Current Capacity) → Complication (Resource Challenges) → Question (Optimization Needs) → Answer (Framework & Strategy) → Implementation",
     tone: "Analytical, strategic, resource-focused"
   },
   custom: {
     focus: "Tailored to specific requirements and context",
-    structure: "Apply SCQA framework: Situation → Complication → Question → Answer, adapted to user context",
     tone: "Adapted to audience and purpose"
   }
 }
@@ -74,11 +47,60 @@ export const TONE_MODIFIERS = {
   executive: "High-level, strategic, decision-focused"
 }
 
-export function generatePrompt(request: GenerationRequest): string {
+/**
+ * Generate framework-specific system prompt
+ */
+function generateFrameworkPrompt(framework: Framework): string {
+  const frameworkStructure = framework.structure
+    .map(step => `- ${step.step}: ${step.description}`)
+    .join('\n')
+
+  return `
+SELECTED FRAMEWORK: ${framework.name.toUpperCase()}
+Framework Description: ${framework.description}
+
+Framework Structure:
+${frameworkStructure}
+
+This framework is optimal for: ${framework.bestFor.join(', ')}
+Key characteristics: ${framework.characteristics.join(', ')}
+
+SLIDE MAPPING GUIDANCE:
+- Target slide count: ${framework.slideMappings.typical_slide_count}
+- Recommended sequence: ${framework.slideMappings.slide_sequence.join(' → ')}
+- Content focus per slide type: ${Object.entries(framework.slideMappings.content_focus)
+    .map(([type, focus]) => `${type}: ${focus}`)
+    .join('; ')}
+
+IMPLEMENTATION INSTRUCTIONS:
+Structure the entire presentation to follow the ${framework.name} framework progression.
+Each slide should contribute to the overall ${framework.name} narrative flow.
+Ensure logical progression from ${framework.structure[0].step} through to ${framework.structure[framework.structure.length - 1].step}.`
+}
+
+export function generatePrompt(request: GenerationRequest, selectedFramework?: Framework): string {
   const typeConfig = PRESENTATION_TYPE_PROMPTS[request.presentation_type as keyof typeof PRESENTATION_TYPE_PROMPTS]
   const toneConfig = TONE_MODIFIERS[request.tone as keyof typeof TONE_MODIFIERS]
 
+  // Generate framework-specific guidance, defaulting to SCQA if none provided
+  const frameworkGuidance = selectedFramework
+    ? generateFrameworkPrompt(selectedFramework)
+    : `
+SELECTED FRAMEWORK: SCQA (DEFAULT)
+Framework Description: Situation-Complication-Question-Answer framework for problem-solving presentations
+
+Framework Structure:
+- Situation: Establish current context and environment
+- Complication: Identify the core problem or challenge
+- Question: Frame the critical question that needs answering
+- Answer: Provide your solution or recommendation
+
+IMPLEMENTATION INSTRUCTIONS:
+Structure the presentation to follow the SCQA progression for optimal problem-solving flow.`
+
   return `${SYSTEM_PROMPT}
+
+${frameworkGuidance}
 
 PRESENTATION REQUIREMENTS:
 - Type: ${request.presentation_type}
@@ -94,11 +116,11 @@ USER PROMPT:
 Generate a ${request.slide_count}-slide presentation that addresses the user's prompt.
 
 CONTENT CREATION GUIDELINES:
-- Apply SCQA flow across the presentation arc
-- Use PREP structure within each slide for clarity and impact
+- Apply the selected framework structure across the presentation arc
 - Lead each slide with the main point, support with reasoning and examples
-- Ensure logical progression from situation through to actionable answers
+- Ensure logical progression following the framework's sequence
 - Include quantifiable examples and business metrics where relevant
+- Make each slide contribute meaningfully to the overall framework narrative
 
 IMPORTANT: Respond ONLY with valid JSON matching this exact structure:
 {
