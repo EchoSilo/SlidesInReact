@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { SlideData } from '@/lib/types'
-import { processSlideEdit, generateChangeSummary, EditRequest } from '@/lib/slideParser'
+import { processSlideEdit, generateChangeSummary, EditRequest, AdvancedCommand } from '@/lib/slideParser'
 
 export interface ChatMessage {
   id: string
@@ -10,35 +10,50 @@ export interface ChatMessage {
 }
 
 export interface UseSlideChatProps {
-  slide: SlideData
-  slideIndex: number
-  onSlideUpdate: (updatedSlide: SlideData) => void
+  slides: SlideData[]
+  currentSlideIndex: number
+  onSlideUpdate: (slideIndex: number, updatedSlide: SlideData) => void
+  onSlideChange?: (slideIndex: number) => void
+  onSlideAdd?: (newSlide: SlideData, position: number) => void
 }
 
 export interface UseSlideChatReturn {
   messages: ChatMessage[]
   isProcessing: boolean
+  currentSlideIndex: number
   sendMessage: (message: string) => Promise<void>
+  switchToSlide: (slideIndex: number) => void
   clearMessages: () => void
+  clearSlideMessages: (slideIndex: number) => void
   addSystemMessage: (content: string) => void
 }
 
 export function useSlideChat({
-  slide,
-  slideIndex,
-  onSlideUpdate
+  slides,
+  currentSlideIndex,
+  onSlideUpdate,
+  onSlideChange,
+  onSlideAdd
 }: UseSlideChatProps): UseSlideChatReturn {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  // Store chat messages per slide
+  const [chatHistory, setChatHistory] = useState<Record<string, ChatMessage[]>>({})
   const [isProcessing, setIsProcessing] = useState(false)
   const messageIdCounter = useRef(0)
+
+  // Get current slide data
+  const currentSlide = slides[currentSlideIndex]
+  const currentSlideId = currentSlide?.id || `slide-${currentSlideIndex}`
+
+  // Get messages for current slide
+  const messages = chatHistory[currentSlideId] || []
 
   // Generate unique message ID
   const generateMessageId = useCallback(() => {
     messageIdCounter.current += 1
-    return `msg-${slideIndex}-${messageIdCounter.current}-${Date.now()}`
-  }, [slideIndex])
+    return `msg-${currentSlideIndex}-${messageIdCounter.current}-${Date.now()}`
+  }, [currentSlideIndex])
 
-  // Add a message to the chat
+  // Add a message to the current slide's chat
   const addMessage = useCallback((
     type: ChatMessage['type'],
     content: string
@@ -50,24 +65,49 @@ export function useSlideChat({
       timestamp: new Date()
     }
 
-    setMessages(prev => [...prev, message])
+    setChatHistory(prev => ({
+      ...prev,
+      [currentSlideId]: [...(prev[currentSlideId] || []), message]
+    }))
     return message
-  }, [generateMessageId])
+  }, [generateMessageId, currentSlideId])
 
   // Add system message (public method)
   const addSystemMessage = useCallback((content: string) => {
     addMessage('system', content)
   }, [addMessage])
 
-  // Remove a specific message
+  // Remove a specific message from current slide
   const removeMessage = useCallback((messageId: string) => {
-    setMessages(prev => prev.filter(msg => msg.id !== messageId))
-  }, [])
+    setChatHistory(prev => ({
+      ...prev,
+      [currentSlideId]: (prev[currentSlideId] || []).filter(msg => msg.id !== messageId)
+    }))
+  }, [currentSlideId])
 
-  // Clear all messages
+  // Clear all messages for current slide
   const clearMessages = useCallback(() => {
-    setMessages([])
-  }, [])
+    setChatHistory(prev => ({
+      ...prev,
+      [currentSlideId]: []
+    }))
+  }, [currentSlideId])
+
+  // Clear messages for a specific slide
+  const clearSlideMessages = useCallback((slideIndex: number) => {
+    const slideId = slides[slideIndex]?.id || `slide-${slideIndex}`
+    setChatHistory(prev => ({
+      ...prev,
+      [slideId]: []
+    }))
+  }, [slides])
+
+  // Switch to a different slide
+  const switchToSlide = useCallback((slideIndex: number) => {
+    if (slideIndex >= 0 && slideIndex < slides.length) {
+      onSlideChange?.(slideIndex)
+    }
+  }, [slides.length, onSlideChange])
 
   // Send a user message and process it
   const sendMessage = useCallback(async (userMessage: string) => {
@@ -92,11 +132,12 @@ export function useSlideChat({
         return
       }
 
-      // Prepare edit request
-      const editRequest: EditRequest = {
+      // Prepare edit request with slides array for advanced commands
+      const editRequest: EditRequest & { slides?: SlideData[] } = {
         message: userMessage.trim(),
-        slide,
-        slideIndex
+        slide: currentSlide,
+        slideIndex: currentSlideIndex,
+        slides: slides
       }
 
       // Process the edit
@@ -105,19 +146,52 @@ export function useSlideChat({
       // Remove thinking message
       removeMessage(thinkingMessage.id)
 
-      if (result.success && result.updatedSlide) {
-        // Generate change summary
-        const changeSummary = generateChangeSummary(slide, result.updatedSlide)
+      if (result.success) {
+        // Handle slide creation (advanced command)
+        if (result.newSlide && result.command) {
+          const { newSlide, command } = result
 
-        // Update the slide
-        onSlideUpdate(result.updatedSlide)
+          // Calculate insertion position
+          let insertPosition = currentSlideIndex + 1
+          if (command.parameters.position === 'before') {
+            insertPosition = currentSlideIndex
+          } else if (command.parameters.position === 'end') {
+            insertPosition = slides.length
+          }
 
-        // Add success message
-        const successContent = result.explanation
-          ? `✅ ${result.explanation}\n\n📝 Changes: ${changeSummary}`
-          : `✅ ${changeSummary}`
+          // Add the new slide if callback is provided
+          if (onSlideAdd) {
+            onSlideAdd(newSlide, insertPosition)
 
-        addMessage('assistant', successContent)
+            // Add success message with instructions
+            const successContent = `✅ ${result.explanation}\n\n🆕 Navigate to the new slide to see your content!`
+            addMessage('assistant', successContent)
+          } else {
+            addMessage('assistant', `✅ ${result.explanation}\n\n⚠️ Slide creation requires additional setup.`)
+          }
+
+        }
+        // Handle slide updates (standard editing or layout changes)
+        else if (result.updatedSlide || result.updates) {
+          const finalSlide = result.updatedSlide || { ...currentSlide, ...result.updates }
+
+          // Generate change summary for content updates
+          let successContent = `✅ ${result.explanation}`
+
+          if (result.updatedSlide) {
+            const changeSummary = generateChangeSummary(currentSlide, result.updatedSlide)
+            successContent += `\n\n📝 Changes: ${changeSummary}`
+          } else if (result.command) {
+            successContent += `\n\n🔄 ${result.command.type.replace('_', ' ').toUpperCase()} completed`
+          }
+
+          // Update the slide
+          onSlideUpdate(currentSlideIndex, finalSlide)
+          addMessage('assistant', successContent)
+
+        } else {
+          addMessage('assistant', `✅ ${result.explanation || 'Command processed successfully'}`)
+        }
 
       } else {
         // Add error message
@@ -128,8 +202,11 @@ export function useSlideChat({
     } catch (error) {
       console.error('Chat message processing error:', error)
 
-      // Remove any thinking messages
-      setMessages(prev => prev.filter(msg => !msg.content.includes('🤔')))
+      // Remove any thinking messages from current slide
+      setChatHistory(prev => ({
+        ...prev,
+        [currentSlideId]: (prev[currentSlideId] || []).filter(msg => !msg.content.includes('🤔'))
+      }))
 
       // Add error message
       addMessage('assistant', '❌ An unexpected error occurred. Please try again.')
@@ -137,13 +214,16 @@ export function useSlideChat({
     } finally {
       setIsProcessing(false)
     }
-  }, [slide, slideIndex, onSlideUpdate, isProcessing, addMessage, removeMessage])
+  }, [currentSlide, currentSlideIndex, onSlideUpdate, isProcessing, addMessage, removeMessage])
 
   return {
     messages,
     isProcessing,
+    currentSlideIndex,
     sendMessage,
+    switchToSlide,
     clearMessages,
+    clearSlideMessages,
     addSystemMessage
   }
 }

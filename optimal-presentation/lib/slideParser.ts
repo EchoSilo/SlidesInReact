@@ -9,6 +9,8 @@ export interface EditRequest {
 export interface EditResponse {
   success: boolean
   updates?: Partial<SlideData>
+  newSlide?: SlideData
+  command?: AdvancedCommand
   explanation?: string
   error?: string
 }
@@ -16,6 +18,27 @@ export interface EditResponse {
 export interface EditResult {
   success: boolean
   updatedSlide?: SlideData
+  explanation?: string
+  error?: string
+}
+
+export interface AdvancedCommand {
+  type: 'slide_creation' | 'layout_change' | 'visualization' | 'content_edit'
+  action: string
+  parameters: {
+    slideType?: string
+    position?: 'before' | 'after' | 'end'
+    layout?: string
+    visualType?: 'chart' | 'diagram' | 'metrics'
+    targetSlideIndex?: number
+  }
+}
+
+export interface AdvancedEditResult {
+  success: boolean
+  command?: AdvancedCommand
+  updatedSlide?: SlideData
+  newSlide?: SlideData
   explanation?: string
   error?: string
 }
@@ -104,9 +127,9 @@ function validateContentForLayout(content: any, layout: string): any {
  * Calls the edit-slide API to process natural language requests
  */
 export async function processSlideEdit(
-  request: EditRequest,
+  request: EditRequest & { slides?: SlideData[] },
   apiKey: string
-): Promise<EditResult> {
+): Promise<EditResult & { newSlide?: SlideData, command?: AdvancedCommand }> {
   try {
     const response = await fetch('/api/edit-slide', {
       method: 'POST',
@@ -114,7 +137,10 @@ export async function processSlideEdit(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        ...request,
+        message: request.message,
+        slide: request.slide,
+        slideIndex: request.slideIndex,
+        slides: request.slides,
         apiKey
       }),
     })
@@ -128,20 +154,34 @@ export async function processSlideEdit(
       }
     }
 
-    if (!result.updates) {
+    // Handle slide creation (advanced command)
+    if (result.newSlide && result.command) {
       return {
-        success: false,
-        error: 'No updates received from server'
+        success: true,
+        newSlide: result.newSlide,
+        command: result.command,
+        explanation: result.explanation
       }
     }
 
-    // Apply the updates to create the final slide
-    const updatedSlide = applySlideUpdates(request.slide, result.updates)
+    // Handle slide updates
+    if (result.updates) {
+      // Apply the updates to create the final slide
+      const updatedSlide = applySlideUpdates(request.slide, result.updates)
 
+      return {
+        success: true,
+        updatedSlide,
+        command: result.command,
+        explanation: result.explanation
+      }
+    }
+
+    // Handle commands without updates (like simple explanations)
     return {
       success: true,
-      updatedSlide,
-      explanation: result.explanation
+      command: result.command,
+      explanation: result.explanation || 'Command processed successfully'
     }
 
   } catch (error) {
@@ -151,6 +191,77 @@ export async function processSlideEdit(
       error: error instanceof Error ? error.message : 'Network error occurred'
     }
   }
+}
+
+/**
+ * Detects if user message contains advanced commands for structural changes
+ */
+export function detectAdvancedCommand(message: string, currentSlideIndex: number): AdvancedCommand | null {
+  const lowerMessage = message.toLowerCase()
+
+  // Slide Creation Commands
+  if (lowerMessage.includes('add') || lowerMessage.includes('create') || lowerMessage.includes('insert')) {
+    if (lowerMessage.includes('slide')) {
+      const slideTypes = ['problem', 'solution', 'benefits', 'implementation', 'framework', 'title', 'conclusion']
+      const foundType = slideTypes.find(type => lowerMessage.includes(type))
+
+      let position: 'before' | 'after' | 'end' = 'after'
+      if (lowerMessage.includes('before')) position = 'before'
+      else if (lowerMessage.includes('end') || lowerMessage.includes('last')) position = 'end'
+
+      return {
+        type: 'slide_creation',
+        action: message,
+        parameters: {
+          slideType: foundType || 'custom',
+          position,
+          targetSlideIndex: currentSlideIndex
+        }
+      }
+    }
+  }
+
+  // Layout Change Commands
+  if (lowerMessage.includes('change') || lowerMessage.includes('convert') || lowerMessage.includes('make')) {
+    if (lowerMessage.includes('layout') || lowerMessage.includes('format')) {
+      const layouts = ['title-only', 'title-content', 'two-column', 'three-column', 'bullet-list', 'metrics', 'diagram', 'centered']
+      const foundLayout = layouts.find(layout =>
+        lowerMessage.includes(layout) ||
+        lowerMessage.includes(layout.replace('-', ' ')) ||
+        lowerMessage.includes(layout.replace('-', ''))
+      )
+
+      if (foundLayout) {
+        return {
+          type: 'layout_change',
+          action: message,
+          parameters: {
+            layout: foundLayout,
+            targetSlideIndex: currentSlideIndex
+          }
+        }
+      }
+    }
+  }
+
+  // Data Visualization Commands
+  if (lowerMessage.includes('chart') || lowerMessage.includes('graph') || lowerMessage.includes('diagram') || lowerMessage.includes('visual')) {
+    let visualType: 'chart' | 'diagram' | 'metrics' = 'chart'
+    if (lowerMessage.includes('diagram')) visualType = 'diagram'
+    else if (lowerMessage.includes('metric')) visualType = 'metrics'
+
+    return {
+      type: 'visualization',
+      action: message,
+      parameters: {
+        visualType,
+        targetSlideIndex: currentSlideIndex
+      }
+    }
+  }
+
+  // No advanced command detected
+  return null
 }
 
 /**
@@ -250,4 +361,122 @@ export function generateChangeSummary(
   }
 
   return `Successfully ${changes.slice(0, -1).join(', ')} and ${changes[changes.length - 1]}`
+}
+
+/**
+ * Creates a new slide with appropriate template based on type
+ */
+export function createSlideTemplate(type: string, slideIndex: number): SlideData {
+  const slideId = `slide-${Date.now()}`
+
+  const templates: Record<string, Partial<SlideData>> = {
+    problem: {
+      type: 'problem',
+      title: 'Current Challenges',
+      layout: 'title-content',
+      content: {
+        sections: [
+          {
+            title: 'Challenge Area',
+            description: 'Describe the key challenge or pain point',
+            items: ['Add specific challenge points here']
+          }
+        ],
+        callout: 'Key insight about this challenge'
+      }
+    },
+    solution: {
+      type: 'solution',
+      title: 'Proposed Solution',
+      layout: 'two-column',
+      content: {
+        sections: [
+          {
+            title: 'Solution Approach',
+            description: 'How we address the challenge',
+            items: ['Solution component 1', 'Solution component 2']
+          }
+        ]
+      }
+    },
+    benefits: {
+      type: 'benefits',
+      title: 'Expected Benefits',
+      layout: 'metrics',
+      content: {
+        keyMetrics: [
+          { label: 'Benefit metric', value: 'XX%', description: 'improvement expected' }
+        ],
+        sections: [
+          {
+            title: 'Key Benefits',
+            description: 'Primary advantages of this solution',
+            items: ['Benefit 1', 'Benefit 2']
+          }
+        ]
+      }
+    },
+    implementation: {
+      type: 'implementation',
+      title: 'Implementation Plan',
+      layout: 'three-column',
+      content: {
+        sections: [
+          {
+            title: 'Phase 1',
+            description: 'Initial implementation phase',
+            items: ['Step 1', 'Step 2']
+          }
+        ]
+      }
+    },
+    framework: {
+      type: 'framework',
+      title: 'Framework Overview',
+      layout: 'diagram',
+      content: {
+        diagram: {
+          type: 'process',
+          elements: [
+            {
+              id: 'step1',
+              label: 'Step 1',
+              description: 'First step in the process'
+            }
+          ]
+        }
+      }
+    },
+    conclusion: {
+      type: 'conclusion',
+      title: 'Next Steps',
+      layout: 'centered',
+      content: {
+        bulletPoints: [
+          'Action item 1',
+          'Action item 2',
+          'Action item 3'
+        ],
+        callout: 'Key takeaway message'
+      }
+    }
+  }
+
+  const template = templates[type] || {
+    type: 'custom',
+    title: 'New Slide',
+    layout: 'title-content',
+    content: {
+      mainText: 'Add your content here...'
+    }
+  }
+
+  return {
+    id: slideId,
+    ...template,
+    metadata: {
+      speaker_notes: `Speaker notes for ${template.title}`,
+      duration_minutes: 2
+    }
+  } as SlideData
 }

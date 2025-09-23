@@ -331,13 +331,26 @@ export default function PreviewPage() {
           </div>
 
           {/* Chat Panel */}
-          {showChat && currentSlide && (
+          {showChat && presentation.slides && (
             <div className="col-span-4">
               <div className="sticky top-6">
                 <SlideChat
-                  slide={currentSlide}
-                  slideIndex={currentSlideIndex}
-                  onSlideUpdate={updateSlide}
+                  slides={presentation.slides}
+                  currentSlideIndex={currentSlideIndex}
+                  onSlideUpdate={(slideIndex, updatedSlide) => {
+                    // Update the specific slide
+                    updateSlide(updatedSlide)
+                  }}
+                  onSlideChange={(slideIndex) => {
+                    // Navigate to the selected slide
+                    goToSlide(slideIndex)
+                  }}
+                  onSlideAdd={(newSlide, position) => {
+                    // Add new slide at the specified position
+                    addSlide(newSlide, position)
+                    // Navigate to the new slide
+                    goToSlide(position)
+                  }}
                   className="h-[calc(100vh-12rem)]"
                 />
               </div>

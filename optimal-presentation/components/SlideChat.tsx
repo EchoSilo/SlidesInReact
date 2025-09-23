@@ -6,18 +6,45 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Send, Bot, User, Lightbulb, Sparkles, CheckCircle, AlertCircle } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Send, Bot, User, Lightbulb, Sparkles, CheckCircle, AlertCircle, ChevronDown } from 'lucide-react'
 import { useSlideChat } from '@/hooks/useSlideChat'
 import { analyzeEditIntent } from '@/lib/slideParser'
 
+// Helper function to get slide icon based on layout
+function getSlideIcon(layout: string): string {
+  switch (layout) {
+    case 'title-only':
+      return '📄'
+    case 'title-content':
+      return '📝'
+    case 'bullet-list':
+      return '📋'
+    case 'two-column':
+      return '📊'
+    case 'three-column':
+      return '📈'
+    case 'metrics':
+      return '📉'
+    case 'diagram':
+      return '🔗'
+    case 'centered':
+      return '🎯'
+    default:
+      return '📄'
+  }
+}
+
 interface SlideChatProps {
-  slide: SlideData
-  slideIndex: number
-  onSlideUpdate: (updatedSlide: SlideData) => void
+  slides: SlideData[]
+  currentSlideIndex: number
+  onSlideUpdate: (slideIndex: number, updatedSlide: SlideData) => void
+  onSlideChange?: (slideIndex: number) => void
+  onSlideAdd?: (newSlide: SlideData, position: number) => void
   className?: string
 }
 
-export function SlideChat({ slide, slideIndex, onSlideUpdate, className }: SlideChatProps) {
+export function SlideChat({ slides, currentSlideIndex, onSlideUpdate, onSlideChange, onSlideAdd, className }: SlideChatProps) {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -26,19 +53,25 @@ export function SlideChat({ slide, slideIndex, onSlideUpdate, className }: Slide
     messages,
     isProcessing,
     sendMessage,
+    switchToSlide,
     addSystemMessage
   } = useSlideChat({
-    slide,
-    slideIndex,
-    onSlideUpdate
+    slides,
+    currentSlideIndex,
+    onSlideUpdate,
+    onSlideChange,
+    onSlideAdd
   })
+
+  // Get current slide
+  const currentSlide = slides[currentSlideIndex]
 
   // Initialize with welcome message when slide changes
   useEffect(() => {
-    if (messages.length === 0) {
-      addSystemMessage(`Hi! I'm here to help you edit slide ${slideIndex + 1}: "${slide.title}". What would you like to change?`)
+    if (messages.length === 0 && currentSlide) {
+      addSystemMessage(`Hi! I'm here to help you edit slide ${currentSlideIndex + 1}: "${currentSlide.title}". What would you like to change?`)
     }
-  }, [slide.id, slideIndex, slide.title, messages.length, addSystemMessage])
+  }, [currentSlide?.id, currentSlideIndex, currentSlide?.title, messages.length, addSystemMessage])
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -47,7 +80,13 @@ export function SlideChat({ slide, slideIndex, onSlideUpdate, className }: Slide
 
   // Get contextual suggestions based on slide type and layout
   const getQuickSuggestions = () => {
-    return analyzeEditIntent(input || '', slide.layout)
+    return analyzeEditIntent(input || '', currentSlide?.layout || 'title-content')
+  }
+
+  // Handle slide selection from dropdown
+  const handleSlideChange = (value: string) => {
+    const slideIndex = parseInt(value)
+    switchToSlide(slideIndex)
   }
 
   const handleSend = async () => {
@@ -79,9 +118,35 @@ export function SlideChat({ slide, slideIndex, onSlideUpdate, className }: Slide
         </div>
         <div className="flex-1">
           <h3 className="font-medium text-foreground">Slide Editor</h3>
-          <p className="text-sm text-muted-foreground">
-            Editing slide {slideIndex + 1} • {slide.layout}
-          </p>
+
+          {/* Slide Selector */}
+          <div className="flex items-center gap-2 mt-1">
+            <Select value={currentSlideIndex.toString()} onValueChange={handleSlideChange}>
+              <SelectTrigger className="h-6 text-xs bg-white border-gray-200 hover:border-primary/50">
+                <SelectValue>
+                  <span className="flex items-center gap-1">
+                    <span>📄</span>
+                    <span>Slide {currentSlideIndex + 1}</span>
+                    <span className="text-muted-foreground">•</span>
+                    <span className="text-muted-foreground">{currentSlide?.layout}</span>
+                  </span>
+                </SelectValue>
+                <ChevronDown className="w-3 h-3 opacity-50" />
+              </SelectTrigger>
+              <SelectContent>
+                {slides.map((slide, index) => (
+                  <SelectItem key={slide.id || index} value={index.toString()}>
+                    <div className="flex items-center gap-2">
+                      <span>{getSlideIcon(slide.layout)}</span>
+                      <span className="font-medium">Slide {index + 1}:</span>
+                      <span className="truncate max-w-[200px]">{slide.title}</span>
+                      <span className="text-muted-foreground text-xs">({slide.layout})</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <Sparkles className="w-5 h-5 text-purple-500" />
       </div>
