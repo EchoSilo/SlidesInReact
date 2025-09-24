@@ -31,36 +31,10 @@ export default function TestIterativePage() {
 
     try {
       if (useStreaming) {
-        // Use Server-Sent Events for streaming
-        setShowProgress(true)
+        // For now, disable streaming until we fix SSE properly
+        // Fall back to regular generation
+        setUseStreaming(false)
 
-        const sse = new EventSource('/api/generate-iterative?' + new URLSearchParams({
-          streamProgress: 'true'
-        }))
-
-        setEventSource(sse)
-
-        sse.addEventListener('complete', (event) => {
-          const data = JSON.parse(event.data)
-          setResult(data)
-          setLoading(false)
-          setShowProgress(false)
-          sse.close()
-        })
-
-        sse.addEventListener('error', (event: any) => {
-          if (event.data) {
-            const data = JSON.parse(event.data)
-            setError(data.error || 'Generation failed')
-          } else {
-            setError('Connection lost')
-          }
-          setLoading(false)
-          setShowProgress(false)
-          sse.close()
-        })
-
-        // Send the request to start generation
         const response = await fetch('/api/generate-iterative', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -71,14 +45,17 @@ export default function TestIterativePage() {
             audience,
             tone,
             apiKey: apiKey || undefined,
-            streamProgress: true
+            streamProgress: false
           })
         })
 
-        if (!response.ok && response.headers.get('content-type')?.includes('application/json')) {
-          const data = await response.json()
-          throw new Error(data.error || 'Failed to start generation')
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to generate presentation')
         }
+
+        setResult(data)
 
       } else {
         // Regular non-streaming request

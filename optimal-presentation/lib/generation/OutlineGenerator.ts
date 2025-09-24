@@ -38,7 +38,12 @@ export class OutlineGenerator {
       const prompt = this.createOutlinePrompt(request, framework)
 
       // Get model configuration for outline generation
-      const modelConfig = ModelConfigs.analysis() // Using analysis tokens (1024)
+      // Need more tokens for complete outline generation
+      const modelConfig = {
+        model: 'claude-3-haiku-20240307',
+        maxTokens: 2500, // Increased from 1024 to handle full outline
+        temperature: 0.3
+      }
 
       if (this.logger) {
         this.logger.llmRequest(
