@@ -1,5 +1,6 @@
 import { GenerationRequest } from './types'
 import { Framework } from './validation/supportedFrameworks'
+import { OutlineGenerationRequest, SlideOutline, PresentationOutline } from './types/outline'
 
 export const SYSTEM_PROMPT = `You are an expert presentation designer and business consultant. You create professional, engaging presentations for business and technical audiences.
 
@@ -178,6 +179,128 @@ Common slide types: title, problem, solution, benefits, implementation, conclusi
 Common layouts: title-only, title-content, two-column, three-column, centered, metrics, chart, table, timeline, circle, diamond.
 
 Return valid JSON only.`
+}
+
+/**
+ * Generate a prompt for creating a presentation outline
+ * This is Phase 1 of the iterative generation approach
+ */
+export function generateOutlinePrompt(
+  request: OutlineGenerationRequest,
+  framework: Framework
+): string {
+  const frameworkStructure = framework.structure
+    .map(step => `- ${step.step}: ${step.description}`)
+    .join('\n')
+
+  const typeConfig = PRESENTATION_TYPE_PROMPTS[request.presentation_type as keyof typeof PRESENTATION_TYPE_PROMPTS]
+
+  return `You are a presentation structure expert. Create a detailed outline without full content.
+
+REQUIREMENTS:
+- Topic: ${request.prompt}
+- Type: ${request.presentation_type} (Focus: ${typeConfig?.focus || 'General business focus'})
+- Slides: ${request.slide_count}
+- Audience: ${request.audience || 'General business audience'}
+- Tone: ${request.tone || 'professional'}
+
+FRAMEWORK: ${framework.name.toUpperCase()}
+${framework.description}
+
+Structure:
+${frameworkStructure}
+
+Generate a presentation outline following the ${framework.name} framework.
+Each slide should have a clear purpose in the narrative flow.
+
+CRITICAL: Return ONLY valid JSON, no markdown or extra text.
+
+{
+  "id": "outline-${Date.now()}",
+  "title": "Clear, compelling title",
+  "subtitle": "Supporting subtitle",
+  "description": "Brief presentation description",
+  "metadata": {
+    "author": "AI Generated",
+    "created_at": "${new Date().toISOString()}",
+    "presentation_type": "${request.presentation_type}",
+    "target_audience": "${request.audience || 'General business audience'}",
+    "estimated_duration": ${Math.ceil(parseInt(request.slide_count) * 2.5)},
+    "slide_count": ${request.slide_count},
+    "tone": "${request.tone || 'professional'}",
+    "framework": "${framework.name}",
+    "version": "1.0"
+  },
+  "slides": [
+    {
+      "slideNumber": 1,
+      "type": "title/problem/solution/benefits/implementation/framework/timeline/conclusion",
+      "title": "Specific slide title",
+      "purpose": "What this slide achieves",
+      "keyPoints": ["Main point 1", "Main point 2"],
+      "frameworkAlignment": "How it fits ${framework.name}"
+    }
+  ],
+  "frameworkStructure": {
+    "framework": "${framework.name}",
+    "flowDescription": "How slides follow the framework",
+    "narrativeArc": "Overall story progression"
+  }
+}`
+}
+
+/**
+ * Generate a prompt for creating a single slide
+ * This is Phase 2 of the iterative generation approach
+ */
+export function generateSlidePrompt(
+  slideInfo: SlideOutline,
+  presentationContext: PresentationOutline,
+  previousSlides?: any[]
+): string {
+  const slideTemplate = SLIDE_TYPE_TEMPLATES[slideInfo.type as keyof typeof SLIDE_TYPE_TEMPLATES]
+
+  let contextSummary = ''
+  if (previousSlides && previousSlides.length > 0) {
+    const recentSlides = previousSlides.slice(-2) // Last 2 slides for context
+    contextSummary = `\n\nPREVIOUS SLIDES CONTEXT:
+${recentSlides.map(s => `- Slide ${s.id}: ${s.title}`).join('\n')}`
+  }
+
+  return `Generate slide ${slideInfo.slideNumber} of ${presentationContext.metadata.slide_count}.
+
+PRESENTATION CONTEXT:
+Title: ${presentationContext.title}
+Framework: ${presentationContext.metadata.framework}
+Audience: ${presentationContext.metadata.target_audience}
+
+CURRENT SLIDE:
+Number: ${slideInfo.slideNumber}
+Type: ${slideInfo.type}
+Title: ${slideInfo.title}
+Purpose: ${slideInfo.purpose}
+Key Points: ${slideInfo.keyPoints?.join(', ') || 'N/A'}
+Framework Alignment: ${slideInfo.frameworkAlignment}${contextSummary}
+
+Generate ONLY this slide's JSON following the ${slideInfo.type} structure.
+Include appropriate content based on the slide's purpose and type.
+
+CRITICAL: Return ONLY the slide JSON object, not the full presentation.
+
+{
+  "id": "slide-${slideInfo.slideNumber}",
+  "type": "${slideInfo.type}",
+  "title": "${slideInfo.title}",
+  "layout": "${slideTemplate?.layout || 'title-content'}",
+  "content": {
+    // Add appropriate content fields for ${slideInfo.type} slide
+  },
+  "metadata": {
+    "speaker_notes": "Notes for presenting this slide",
+    "duration_minutes": 2,
+    "audience_level": "executive"
+  }
+}`
 }
 
 export const SLIDE_TYPE_TEMPLATES = {
