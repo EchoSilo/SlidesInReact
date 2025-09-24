@@ -30,9 +30,9 @@ export const PRESENTATION_TYPE_PROMPTS = {
     focus: "Organizational change, strategy, transformation roadmap, change management",
     tone: "Strategic, visionary, change-focused"
   },
-  capacity: {
-    focus: "Resource allocation, capacity planning, optimization, strategic prioritization",
-    tone: "Analytical, strategic, resource-focused"
+  pov: {
+    focus: "Strategic perspective, thought leadership, industry insights, informed opinion",
+    tone: "Authoritative, insightful, forward-thinking"
   },
   custom: {
     focus: "Tailored to specific requirements and context",

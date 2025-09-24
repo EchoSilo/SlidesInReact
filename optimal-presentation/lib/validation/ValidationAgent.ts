@@ -105,15 +105,16 @@ export class ValidationAgent {
   async validatePresentation(
     presentation: PresentationData,
     originalRequest: GenerationRequest,
-    onProgress?: (round: number, status: string) => void
+    onProgress?: (round: number, status: string) => void,
+    providedFrameworkAnalysis?: FrameworkAnalysisResult // Optional to avoid duplicate calls
   ): Promise<ValidationSessionResult> {
     const sessionId = this.generateSessionId()
     const roundResults: ValidationRoundResult[] = []
 
     try {
-      // Step 1: Framework Analysis
+      // Step 1: Framework Analysis (use provided or analyze)
       onProgress?.(0, 'Analyzing presentation framework...')
-      const frameworkAnalysis = await this.frameworkAnalyzer.analyzeFramework(
+      const frameworkAnalysis = providedFrameworkAnalysis || await this.frameworkAnalyzer.analyzeFramework(
         presentation,
         originalRequest
       )

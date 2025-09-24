@@ -165,14 +165,15 @@ export class RefinementEngine {
         originalRequest
       )
 
-      // Perform initial validation
+      // Perform initial validation (pass framework analysis to avoid duplicate call)
       const initialValidation = await this.validationAgent.validatePresentation(
         initialPresentation,
         originalRequest,
         (round, status) => {
           this.progressTracker.updateStage(RefinementStage.ANALYZING, status)
           progressCallback?.(this.progressTracker.getProgress())
-        }
+        },
+        frameworkAnalysis // Pass to avoid duplicate analysis
       )
 
       const initialScore = initialValidation.finalScore

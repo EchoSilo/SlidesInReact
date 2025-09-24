@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test'
 const TEST_PROMPT = "Create a capacity management framework for technology teams that includes resource allocation, workload planning, and performance optimization strategies"
 
 const TEST_CONFIG = {
-  presentationType: "capacity",        // Choose: business, technical, process, transformation, capacity, custom
+  presentationType: "pov",        // Choose: business, technical, process, transformation, pov, custom
   presentationScope: "comprehensive", // Choose: executive, standard, detailed, comprehensive, deep_dive
   slideCount: "12",
   audience: "Engineering Managers and C-Level Executives",
@@ -28,7 +28,7 @@ test.describe('Framework Analysis Validation', () => {
 
     // Select presentation type (using the Select component)
     await page.click('button:has-text("Select presentation type")')
-    await page.click(`text=${TEST_CONFIG.presentationType === 'capacity' ? 'Capacity Management' : 'Business Proposal'}`)
+    await page.click(`text=${TEST_CONFIG.presentationType === 'pov' ? 'Point of View (POV)' : 'Business Proposal'}`)
 
     // Set slide count
     await page.fill('input[type="number"]', TEST_CONFIG.slideCount)

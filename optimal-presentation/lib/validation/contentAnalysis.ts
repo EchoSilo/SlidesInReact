@@ -338,7 +338,7 @@ export class ContentAnalyzer {
     content: ExtractedContent,
     audienceLevel: string
   ): number {
-    let score = 100
+    let score = 70 // Start with a more realistic base score
 
     // Language appropriateness (40% of score)
     const languageScore = this.assessLanguageAppropriateess(content, audienceLevel)
@@ -362,7 +362,7 @@ export class ContentAnalyzer {
     presentation: PresentationData,
     content: ExtractedContent
   ): number {
-    let score = 100
+    let score = 75 // Start with a more realistic base score
 
     // Message consistency (40% of score)
     const consistencyScore = this.assessMessageConsistency(content)

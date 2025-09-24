@@ -46,6 +46,7 @@ export interface FrameworkEvaluation {
  */
 export class FrameworkAnalyzer {
   private anthropic: Anthropic
+  private hasLoggedAnalysis: boolean = false
 
   constructor(apiKey: string) {
     this.anthropic = require('@/lib/anthropic-client').createAnthropicClient(apiKey)
@@ -61,11 +62,15 @@ export class FrameworkAnalyzer {
     try {
       const prompt = generateFrameworkAnalysisPrompt(presentation, context)
 
-      console.log('Analyzing framework for presentation:', {
-        title: presentation.title,
-        type: presentation.metadata.presentation_type,
-        slideCount: presentation.slides.length
-      })
+      // Only log if not already logged
+      if (!this.hasLoggedAnalysis) {
+        console.log('Analyzing framework for presentation:', {
+          title: presentation.title,
+          type: presentation.metadata.presentation_type,
+          slideCount: presentation.slides.length
+        })
+        this.hasLoggedAnalysis = true
+      }
 
       const response = await this.anthropic.messages.create({
         model: 'claude-3-haiku-20240307',

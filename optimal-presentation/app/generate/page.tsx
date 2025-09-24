@@ -20,7 +20,7 @@ const presentationTypes = [
   { id: "technical", label: "Technical Framework", description: "Technical architecture and implementation details" },
   { id: "process", label: "Process Improvement", description: "Workflow optimization and process design" },
   { id: "transformation", label: "Transformation", description: "Organizational change and transformation initiatives" },
-  { id: "capacity", label: "Capacity Management", description: "Resource allocation and capacity planning" },
+  { id: "pov", label: "Point of View (POV)", description: "Strategic perspective and thought leadership on industry trends" },
   { id: "custom", label: "Custom", description: "Tailored presentation based on your specific needs" }
 ]
 

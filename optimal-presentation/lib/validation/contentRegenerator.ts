@@ -317,6 +317,7 @@ Generate the improved presentation now:`
   private async callLLMForRegeneration(prompt: string): Promise<PresentationData | null> {
     try {
       console.log('🤖 Calling LLM for content regeneration...')
+      console.log('📝 Regeneration prompt preview (first 500 chars):', prompt.substring(0, 500) + '...')
 
       const response = await this.anthropic.messages.create({
         model: this.config.model,

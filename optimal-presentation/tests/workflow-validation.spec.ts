@@ -6,7 +6,7 @@ const TEST_CONFIG = {
   prompt: "CREATE_A_COMPREHENSIVE_CAPACITY_MANAGEMENT_FRAMEWORK_FOR_ENTERPRISE_TECHNOLOGY_TEAMS_THAT_INCLUDES_RESOURCE_ALLOCATION_WORKLOAD_PLANNING_AND_PERFORMANCE_OPTIMIZATION_STRATEGIES",
 
   // Replace with your desired settings
-  presentationType: "capacity", // business, technical, process, transformation, capacity, custom
+  presentationType: "pov", // business, technical, process, transformation, pov, custom
   presentationScope: "comprehensive", // executive, standard, detailed, comprehensive, deep_dive
   slideCount: "12",
   audience: "C-Level Executives and Engineering Managers",

@@ -55,7 +55,7 @@ async function performValidationPipeline(
 ) {
   // Create refinement engine with user configuration
   const refinementConfig = {
-    targetQualityScore: request.validationConfig?.targetQualityScore || 80,
+    targetQualityScore: request.validationConfig?.targetQualityScore || 90, // Raised to 90 to trigger refinement
     maxRefinementRounds: request.validationConfig?.maxRefinementRounds || 3,
     minimumImprovement: request.validationConfig?.minimumImprovement || 2
   }
@@ -311,14 +311,15 @@ export async function POST(request: NextRequest) {
     logger.info('VALIDATION_PIPELINE', 'Starting multi-agent validation and refinement pipeline')
 
     try {
-      // Check if we should use the new orchestrator
-      if (body.validationConfig?.useOrchestrator) {
+      // Check if we should use the new orchestrator (default to true for testing)
+      const useOrchestrator = body.validationConfig?.useOrchestrator ?? true // Default to true
+      if (useOrchestrator) {
         logger.info('ORCHESTRATOR', 'Using new RefinementOrchestrator for content regeneration')
 
         // Create and use the orchestrator
         const orchestrator = createRefinementOrchestrator(apiKey, {
           maxRounds: body.validationConfig.maxRefinementRounds || 3,
-          targetScore: body.validationConfig.targetQualityScore || 80,
+          targetScore: body.validationConfig.targetQualityScore || 90, // Match the pipeline target
           minimumImprovement: body.validationConfig.minimumImprovement || 2,
           enableDetailedLogging: true
         })
