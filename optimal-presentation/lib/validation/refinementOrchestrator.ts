@@ -6,7 +6,7 @@
 import { PresentationData, GenerationRequest } from '@/lib/types'
 import { ValidationAgent, ValidationSessionResult } from './ValidationAgent'
 import { ContentRegenerator, RegenerationResult } from './contentRegenerator'
-import { FeedbackToPromptConverter, ValidationFeedback } from './feedbackToPromptConverter'
+import { FeedbackToPromptConverter, ValidationFeedback, RefinementHistoryContext } from './feedbackToPromptConverter'
 import { FrameworkAnalyzer, FrameworkAnalysisResult } from './frameworkAnalysis'
 import { Framework } from './supportedFrameworks'
 import { ContentAnalysisResult, ValidationIssue, IssueSeverity } from './contentAnalysis'
@@ -154,6 +154,7 @@ export class RefinementOrchestrator {
       let currentPresentation = presentation
       let currentScore = initialScore
       let previousScore = initialScore
+      const refinementHistory: RefinementHistoryContext[] = []
 
       for (let round = 1; round <= this.config.maxRounds; round++) {
         this.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
@@ -189,7 +190,8 @@ export class RefinementOrchestrator {
             currentPresentation,
             currentIssues
           ),
-          round
+          round,
+          refinementHistory
         }
 
         // Regenerate content with feedback
@@ -247,7 +249,7 @@ export class RefinementOrchestrator {
         this.log(`   Issues addressed: ${regenerationResult.changes.length}`)
 
         // Record history
-        history.push({
+        const historyEntry = {
           round,
           beforeScore: currentScore,
           afterScore: improvedScore,
@@ -258,7 +260,22 @@ export class RefinementOrchestrator {
             .map(c => c.description),
           duration: Date.now() - roundStartTime,
           success: improvement > 0
-        })
+        }
+        history.push(historyEntry)
+
+        // Build refinement history context for next round
+        const historyContext: RefinementHistoryContext = {
+          round,
+          previousScore: currentScore,
+          currentScore: improvedScore,
+          improvementMade: improvement,
+          issuesFixed: regenerationResult.changes.flatMap(c => c.issuesAddressed),
+          changesAttempted: regenerationResult.changes.map(c => c.description),
+          lessonsLearned: this.extractLessonsLearned(regenerationResult, improvement),
+          whatWorked: improvement > 0 ? regenerationResult.changes.map(c => c.description) : [],
+          whatDidntWork: improvement <= 0 ? regenerationResult.changes.map(c => c.description) : []
+        }
+        refinementHistory.push(historyContext)
 
         // Update state if improved
         if (improvement > 0) {
@@ -488,6 +505,32 @@ export class RefinementOrchestrator {
         console.log(data)
       }
     }
+  }
+
+  /**
+   * Extract lessons learned from regeneration result
+   */
+  private extractLessonsLearned(result: RegenerationResult, improvement: number): string[] {
+    const lessons: string[] = []
+
+    if (improvement > 0) {
+      if (result.changes.some(c => c.changeType === 'data')) {
+        lessons.push('Adding data support improves credibility')
+      }
+      if (result.changes.some(c => c.changeType === 'structure')) {
+        lessons.push('Restructuring content improves flow')
+      }
+      if (result.changes.some(c => c.changeType === 'content')) {
+        lessons.push('Content clarity improvements are effective')
+      }
+    } else {
+      lessons.push('Current approach may need different strategy')
+      if (result.changes.length > 3) {
+        lessons.push('Too many simultaneous changes may reduce effectiveness')
+      }
+    }
+
+    return lessons
   }
 
   /**

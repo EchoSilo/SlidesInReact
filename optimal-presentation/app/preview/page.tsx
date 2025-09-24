@@ -349,16 +349,22 @@ export default function PreviewPage() {
         {/* Chat Overlay */}
         {showChat && presentation.slides && (
           <>
-            {/* Backdrop */}
+            {/* Backdrop - only covers the main content area, not header */}
             <div
-              className="fixed inset-0 bg-black/20 z-40 transition-opacity duration-200"
+              className="fixed top-0 left-0 right-0 bottom-0 bg-black/10 z-40 transition-opacity duration-200"
               onClick={() => setShowChat(false)}
               aria-label="Close chat"
+              style={{ marginTop: '5rem' }} // Adjust based on header height
             />
 
-            {/* Chat Panel */}
+            {/* Chat Panel - positioned to not cover header */}
             <div
-              className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col"
+              className="fixed right-0 w-[28rem] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col"
+              style={{
+                top: '5rem', // Start below header
+                bottom: 0,
+                borderLeft: '1px solid #e5e7eb'
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Close button */}

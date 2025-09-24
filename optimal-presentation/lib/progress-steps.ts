@@ -137,17 +137,20 @@ export class ProgressSimulator {
   }
 
   start() {
+    console.log('🎬 [ProgressSimulator] Starting progress simulation with', this.steps.length, 'steps')
     this.currentStepIndex = 0
     this.processNextStep()
   }
 
   private processNextStep() {
     if (this.currentStepIndex >= this.steps.length) {
+      console.log('✅ [ProgressSimulator] All steps completed')
       this.onComplete()
       return
     }
 
     const step = this.steps[this.currentStepIndex]
+    console.log('📝 [ProgressSimulator] Processing step', this.currentStepIndex + 1, '/', this.steps.length, ':', step.title)
 
     // Mark current step as active
     const activeMessage: ProgressMessage = {
@@ -159,6 +162,7 @@ export class ProgressSimulator {
       status: 'active'
     }
 
+    console.log('📤 [ProgressSimulator] Sending active message:', activeMessage)
     this.onProgress(activeMessage)
 
     // After the estimated duration, mark as complete and move to next

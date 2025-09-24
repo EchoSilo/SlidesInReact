@@ -4,6 +4,7 @@
  */
 
 import { PresentationData, GenerationRequest } from '@/lib/types'
+import { WorkflowLogger } from '@/lib/workflow-logger'
 import { ValidationAgent, ValidationSessionResult, ValidationConfig } from './ValidationAgent'
 import { FrameworkAnalyzer, FrameworkAnalysisResult } from './frameworkAnalysis'
 import { ContentAnalysisResult, ValidationIssue, IssueSeverity } from './contentAnalysis'
@@ -126,6 +127,8 @@ export class RefinementEngine {
       ...config
     }
 
+    // Initialize components AFTER config is set
+    // Note: Logger will be set via setLogger method when available
     this.validationAgent = new ValidationAgent(apiKey, this.config)
     this.frameworkAnalyzer = new FrameworkAnalyzer(apiKey)
     this.contentRegenerator = new ContentRegenerator(apiKey, {
@@ -134,6 +137,15 @@ export class RefinementEngine {
       maxTokens: this.config.maxTokens
     })
     this.progressTracker = new ProgressTracker()
+  }
+
+  /**
+   * Set logger for all components
+   */
+  setLogger(logger: WorkflowLogger) {
+    // Create new ValidationAgent with logger
+    this.validationAgent = new ValidationAgent(this.apiKey, this.config, logger)
+    // Note: Other agents can be updated similarly when they support logging
   }
 
   /**

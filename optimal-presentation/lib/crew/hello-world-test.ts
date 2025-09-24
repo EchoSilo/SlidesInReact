@@ -4,18 +4,22 @@
  */
 
 import { Agent, Task, Crew } from './core'
+import { WorkflowLogger } from '@/lib/workflow-logger'
 
 export async function testCrewAIHelloWorld(apiKey: string) {
   console.log('🧪 Starting CrewAI Hello World Test...')
 
   try {
-    // Create a simple hello world agent
+    // Create a logger for the test
+    const testLogger = new WorkflowLogger('crew-hello-world-test-' + Date.now())
+
+    // Create a simple hello world agent with logger
     const helloAgent = new Agent({
       name: 'HelloAgent',
       role: 'Friendly Greeter',
       goal: 'Say hello in a cheerful and welcoming way',
       backstory: 'You are a friendly AI assistant who loves to greet people and make them feel welcome.'
-    }, apiKey)
+    }, apiKey, testLogger)
 
     // Create a simple task
     const helloTask = new Task({

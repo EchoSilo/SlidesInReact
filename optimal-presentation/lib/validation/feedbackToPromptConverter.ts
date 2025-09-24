@@ -57,6 +57,21 @@ export interface FrameworkCompliance {
 }
 
 /**
+ * Refinement history entry for context continuity
+ */
+export interface RefinementHistoryContext {
+  round: number
+  previousScore: number
+  currentScore: number
+  improvementMade: number
+  issuesFixed: string[]
+  changesAttempted: string[]
+  lessonsLearned: string[]
+  whatWorked: string[]
+  whatDidntWork: string[]
+}
+
+/**
  * Validation feedback structure
  */
 export interface ValidationFeedback {
@@ -68,6 +83,7 @@ export interface ValidationFeedback {
   framework: Framework
   preserveSlides: string[]
   round: number
+  refinementHistory: RefinementHistoryContext[]
 }
 
 /**
@@ -527,8 +543,20 @@ Your task is to improve the presentation while preserving its strengths.`
   /**
    * Generate complete refinement prompt string
    */
-  generatePromptString(refinementPrompt: RefinementPrompt): string {
-    return `${refinementPrompt.systemContext}
+  generatePromptString(refinementPrompt: RefinementPrompt, refinementHistory?: RefinementHistoryContext[]): string {
+    const historySection = refinementHistory && refinementHistory.length > 0
+      ? `\nREFINEMENT HISTORY (Learning Context):
+${refinementHistory.map(entry =>
+  `Round ${entry.round}: Score ${entry.previousScore}→${entry.currentScore} (+${entry.improvementMade})
+   Fixed: ${entry.issuesFixed.join('; ')}
+   Attempted: ${entry.changesAttempted.join('; ')}
+   What Worked: ${entry.whatWorked.join('; ')}
+   What Didn't Work: ${entry.whatDidntWork.join('; ')}
+   Lessons: ${entry.lessonsLearned.join('; ')}`
+).join('\n')}\n`
+      : '';
+
+    return `${refinementPrompt.systemContext}${historySection}
 
 CRITICAL FIXES REQUIRED (Priority Order):
 ${refinementPrompt.criticalFixes.map(fix =>
@@ -565,7 +593,7 @@ ${refinementPrompt.frameworkCompliance.missingElements.length > 0
 OUTPUT REQUIREMENTS:
 ${refinementPrompt.outputRequirements.map((req, i) => `${i + 1}. ${req}`).join('\n')}
 
-Now, generate the improved presentation JSON that addresses all issues while preserving strengths.`
+INSTRUCTIONS: Generate the improved presentation JSON that addresses all current issues while learning from refinement history. Focus on sequential improvement building on previous rounds.`
   }
 }
 

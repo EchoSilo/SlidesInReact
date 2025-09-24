@@ -5,6 +5,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { PresentationData, GenerationRequest } from '@/lib/types'
+import { WorkflowLogger } from '@/lib/workflow-logger'
 import { FrameworkAnalyzer, FrameworkAnalysisResult } from './frameworkAnalysis'
 import { ContentAnalyzer, ContentAnalysisResult, ValidationDimensions } from './contentAnalysis'
 import {
@@ -15,6 +16,7 @@ import {
   generateDimensionImprovementPrompt
 } from './validationPrompts'
 import { ValidationResponseParser, responseParser } from './responseParser'
+import { ModelConfigs } from '@/lib/model-config'
 
 /**
  * Validation configuration options
@@ -75,8 +77,9 @@ export class ValidationAgent {
   private contentAnalyzer: ContentAnalyzer
   private responseParser: ValidationResponseParser
   private config: ValidationConfig
+  private logger?: WorkflowLogger
 
-  constructor(apiKey: string, config: Partial<ValidationConfig> = {}) {
+  constructor(apiKey: string, config: Partial<ValidationConfig> = {}, logger?: WorkflowLogger) {
     this.anthropic = require('@/lib/anthropic-client').createAnthropicClient(apiKey)
     this.frameworkAnalyzer = new FrameworkAnalyzer(apiKey)
     this.contentAnalyzer = new ContentAnalyzer({
@@ -85,16 +88,18 @@ export class ValidationAgent {
       includeMinorIssues: config.includeMinorIssues !== false
     })
     this.responseParser = responseParser
+    this.logger = logger
 
-    // Set default configuration
+    // Set default configuration using centralized model config
+    const analysisConfig = ModelConfigs.analysis()
     this.config = {
       maxRefinementRounds: 3,
       targetQualityScore: 80,
       minConfidenceThreshold: 70,
       includeMinorIssues: true,
-      model: 'claude-3-haiku-20240307',
-      temperature: 0.3,
-      maxTokens: 4000,
+      model: analysisConfig.model,
+      temperature: analysisConfig.temperature,
+      maxTokens: analysisConfig.maxTokens,
       ...config
     }
   }
@@ -214,6 +219,8 @@ export class ValidationAgent {
     frameworkAnalysis: FrameworkAnalysisResult,
     round: number
   ): Promise<ContentAnalysisResult> {
+    const startTime = Date.now()
+
     try {
       const prompt = generateContentValidationPrompt(
         presentation,
@@ -221,7 +228,23 @@ export class ValidationAgent {
         frameworkAnalysis
       )
 
-      console.log(`Performing content validation - Round ${round}`)
+      // Log validation start
+      if (this.logger) {
+        this.logger.agentAction('CONTENT_VALIDATION', 'ValidationAgent', 'validation', `started content validation - Round ${round}`, {
+          round,
+          presentation_id: presentation.id,
+          slide_count: presentation.slides.length,
+          framework: frameworkAnalysis.recommendation.primary_framework
+        })
+
+        // Log LLM request
+        this.logger.agentLlmRequest('VALIDATION_LLM_REQUEST', 'ValidationAgent', 'validation', 'Content Validator', prompt, this.config.model, {
+          max_tokens: this.config.maxTokens,
+          temperature: this.config.temperature
+        })
+      } else {
+        console.log(`Performing content validation - Round ${round}`)
+      }
 
       const response = await this.anthropic.messages.create({
         model: this.config.model,
@@ -232,6 +255,13 @@ export class ValidationAgent {
           content: prompt
         }]
       })
+
+      const executionTime = Date.now() - startTime
+
+      // Log LLM response
+      if (this.logger) {
+        this.logger.agentLlmResponse('VALIDATION_LLM_RESPONSE', 'ValidationAgent', 'validation', 'Content Validator', response, executionTime)
+      }
 
       const content = response.content[0]
       if (content.type !== 'text') {
@@ -245,7 +275,17 @@ export class ValidationAgent {
       analysisResult.analysisMetadata.processingTime = Date.now()
       analysisResult.analysisMetadata.frameworkUsed = frameworkAnalysis.recommendation.primary_framework
 
-      console.log(`Content validation completed - Score: ${analysisResult.overallScore}/100`)
+      // Log completion
+      if (this.logger) {
+        this.logger.agentAction('CONTENT_VALIDATION', 'ValidationAgent', 'validation', 'completed content validation', {
+          round,
+          overall_score: analysisResult.overallScore,
+          execution_time: executionTime,
+          issues_found: analysisResult.issues.length
+        }, executionTime)
+      } else {
+        console.log(`Content validation completed - Score: ${analysisResult.overallScore}/100`)
+      }
 
       return analysisResult
 

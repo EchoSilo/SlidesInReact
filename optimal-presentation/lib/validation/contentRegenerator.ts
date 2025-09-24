@@ -13,6 +13,7 @@ import {
 } from './feedbackToPromptConverter'
 import { ValidationIssue, IssueSeverity } from './contentAnalysis'
 import { createAnthropicClient } from '@/lib/anthropic-client'
+import { ModelConfigs, TokenUsage, validateTokenUsage } from '@/lib/model-config'
 
 /**
  * Content regeneration configuration
@@ -73,16 +74,21 @@ export class ContentRegenerator {
   constructor(apiKey: string, config?: Partial<RegenerationConfig>) {
     this.anthropic = createAnthropicClient(apiKey)
     this.converter = new FeedbackToPromptConverter()
+
+    // Use centralized model configuration
+    const modelConfig = ModelConfigs.refinement()
+
     this.config = {
-      model: 'claude-3-haiku-20240307',
-      temperature: 0.4, // Slightly higher than validation for creativity
-      maxTokens: 8192, // More tokens for complete presentation
+      model: modelConfig.model,
+      temperature: modelConfig.temperature,
+      maxTokens: modelConfig.maxTokens,
       preservationThreshold: 85,
-      maxRetries: 2,
+      maxRetries: 1,
       mergeStrategy: 'selective',
       ...config
     }
   }
+
 
   /**
    * Main regeneration method
@@ -119,7 +125,8 @@ export class ContentRegenerator {
         currentPresentation,
         refinementPrompt,
         originalRequest,
-        preservationStrategy
+        preservationStrategy,
+        validationFeedback
       )
 
       // Step 4: Call LLM for regeneration
@@ -275,9 +282,10 @@ export class ContentRegenerator {
     currentPresentation: PresentationData,
     refinementPrompt: RefinementPrompt,
     originalRequest: GenerationRequest,
-    preservationStrategy: SlidePreservation[]
+    preservationStrategy: SlidePreservation[],
+    validationFeedback: ValidationFeedback
   ): string {
-    const promptString = this.converter.generatePromptString(refinementPrompt)
+    const promptString = this.converter.generatePromptString(refinementPrompt, validationFeedback.refinementHistory)
 
     return `You are improving an existing presentation based on validation feedback.
 
@@ -354,14 +362,6 @@ Generate the improved presentation now:`
 
     } catch (error) {
       console.error('LLM regeneration call failed:', error)
-
-      // Retry logic
-      if (this.config.maxRetries > 0) {
-        console.log('🔄 Retrying LLM call...')
-        this.config.maxRetries--
-        return this.callLLMForRegeneration(prompt)
-      }
-
       return null
     }
   }
@@ -648,10 +648,11 @@ Framework: ${framework.name}
 Return ONLY the corrected slide JSON.`
 
     try {
+      const quickFixConfig = ModelConfigs.quickFix()
       const response = await this.anthropic.messages.create({
-        model: this.config.model,
-        max_tokens: 2048,
-        temperature: 0.3,
+        model: quickFixConfig.model,
+        max_tokens: quickFixConfig.maxTokens,
+        temperature: quickFixConfig.temperature,
         messages: [{ role: 'user', content: prompt }]
       })
 

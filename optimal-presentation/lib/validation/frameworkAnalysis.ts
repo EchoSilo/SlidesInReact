@@ -6,6 +6,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { PresentationData, GenerationRequest } from '@/lib/types'
 import { Framework, FrameworkRecommendation, SUPPORTED_FRAMEWORKS, getFramework } from './supportedFrameworks'
 import { generateFrameworkAnalysisPrompt, generateFrameworkComparisonPrompt } from './frameworkPrompts'
+import { ModelConfigs } from '@/lib/model-config'
 
 /**
  * Framework analysis result interface
@@ -72,10 +73,11 @@ export class FrameworkAnalyzer {
         this.hasLoggedAnalysis = true
       }
 
+      const analysisConfig = ModelConfigs.analysis()
       const response = await this.anthropic.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 4096,
-        temperature: 0.3, // Lower temperature for more consistent analysis
+        model: analysisConfig.model,
+        max_tokens: analysisConfig.maxTokens,
+        temperature: analysisConfig.temperature,
         messages: [{
           role: 'user',
           content: prompt

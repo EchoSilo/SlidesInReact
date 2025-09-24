@@ -7,6 +7,7 @@ import { FrameworkAnalyzer, getQuickFrameworkRecommendation } from '@/lib/valida
 import { getDefaultAnthropicClient, createAnthropicClient } from '@/lib/anthropic-client'
 import { WorkflowLogger } from '@/lib/workflow-logger'
 import { RefinementOrchestrator, createRefinementOrchestrator } from '@/lib/validation/refinementOrchestrator'
+import { ModelConfigs } from '@/lib/model-config'
 
 const anthropic = getDefaultAnthropicClient()
 
@@ -51,7 +52,8 @@ interface EnhancedGenerationResponse extends GenerationResponse {
 async function performValidationPipeline(
   presentation: PresentationData,
   request: EnhancedGenerationRequest,
-  apiKey: string
+  apiKey: string,
+  logger: WorkflowLogger
 ) {
   // Create refinement engine with user configuration
   const refinementConfig = {
@@ -61,6 +63,9 @@ async function performValidationPipeline(
   }
 
   const refinementEngine = new RefinementEngine(apiKey, refinementConfig)
+
+  // Inject logger into all agents
+  refinementEngine.setLogger(logger)
 
   // Convert request to GenerationRequest format for validation
   const originalRequest: GenerationRequest = {
@@ -156,9 +161,10 @@ export async function POST(request: NextRequest) {
 
     // Perform AI framework analysis
     const frameworkAnalysisStart = Date.now()
+    const analysisConfig = ModelConfigs.analysis()
     logger.llmRequest('FRAMEWORK_AGENT',
       `Analyzing prompt for optimal framework recommendation: ${body.prompt.substring(0, 100)}...`,
-      'claude-3-haiku-20240307',
+      analysisConfig.model,
       { task: 'framework_analysis', context: analysisContext }
     )
 
@@ -198,10 +204,11 @@ export async function POST(request: NextRequest) {
     const llmStartTime = Date.now()
     let response: any
 
+    const generationConfig = ModelConfigs.generation()
     const llmConfig = {
-      model: 'claude-3-haiku-20240307',
-      max_tokens: 4096,
-      temperature: 0.7
+      model: generationConfig.model,
+      max_tokens: generationConfig.maxTokens,
+      temperature: generationConfig.temperature
     }
 
     logger.llmRequest('LLM_REQUEST', prompt, llmConfig.model, llmConfig)
@@ -300,7 +307,7 @@ export async function POST(request: NextRequest) {
         frameworkSelected: frameworkRecommendation.framework.name,
         frameworkConfidence: frameworkRecommendation.confidence,
         frameworkRationale: frameworkRecommendation.rationale,
-        llmModel: 'claude-3-haiku-20240307',
+        llmModel: generationConfig.model,
         responseLength: content.text.length,
         fallbacksUsed: fallbacksUsed
       },
@@ -318,9 +325,9 @@ export async function POST(request: NextRequest) {
 
         // Create and use the orchestrator
         const orchestrator = createRefinementOrchestrator(apiKey, {
-          maxRounds: body.validationConfig.maxRefinementRounds || 3,
-          targetScore: body.validationConfig.targetQualityScore || 90, // Match the pipeline target
-          minimumImprovement: body.validationConfig.minimumImprovement || 2,
+          maxRounds: body.validationConfig?.maxRefinementRounds || 3,
+          targetScore: body.validationConfig?.targetQualityScore || 90, // Match the pipeline target
+          minimumImprovement: body.validationConfig?.minimumImprovement || 2,
           enableDetailedLogging: true
         })
 
@@ -357,7 +364,8 @@ export async function POST(request: NextRequest) {
         const validationResult = await performValidationPipeline(
           presentationData,
           body,
-          apiKey
+          apiKey,
+          logger
         )
 
         logger.success('VALIDATION_PIPELINE', 'Multi-agent validation completed successfully', {

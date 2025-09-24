@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createAnthropicClient } from '@/lib/anthropic-client'
+import { ModelConfigs } from '@/lib/model-config'
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,9 +28,11 @@ export async function POST(request: NextRequest) {
 
     try {
       // Make a minimal request to validate the key
+      const validationConfig = ModelConfigs.validation()
       const response = await anthropic.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 10,
+        model: validationConfig.model,
+        max_tokens: validationConfig.maxTokens,
+        temperature: validationConfig.temperature,
         messages: [{
           role: 'user',
           content: 'Test'

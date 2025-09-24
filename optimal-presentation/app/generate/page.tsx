@@ -68,21 +68,27 @@ export default function GeneratePage() {
     // Initialize progress simulator
     progressSimulatorRef.current = new ProgressSimulator(
       (message) => {
+        console.log('📨 [FRONTEND] Received progress message:', message)
         setProgressMessages(prev => {
           const filtered = prev.filter(m => m.id !== message.id)
-          return [...filtered, message]
+          const updated = [...filtered, message]
+          console.log('📋 [FRONTEND] Updated progress messages:', updated)
+          return updated
         })
       },
       () => {
+        console.log('🏁 [FRONTEND] Progress simulation complete')
         // Progress simulation complete - the actual API call should be finishing around now
       },
       (errorMsg) => {
+        console.log('❌ [FRONTEND] Progress simulation error:', errorMsg)
         setError(errorMsg)
         setIsGenerating(false)
       }
     )
 
     // Start progress simulation
+    console.log('🚀 [FRONTEND] Starting progress simulation')
     progressSimulatorRef.current.start()
 
     // Frontend workflow logging
