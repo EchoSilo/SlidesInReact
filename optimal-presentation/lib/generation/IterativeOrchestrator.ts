@@ -8,6 +8,8 @@ import { OutlineGenerator } from './OutlineGenerator'
 import { SlideGenerator, SlideGenerationResult } from './SlideGenerator'
 import { OutlineValidator } from '@/lib/validation/OutlineValidator'
 import { SlideValidator, SlideValidationFeedback } from '@/lib/validation/SlideValidator'
+import { DeckValidator, DeckValidationFeedback } from '@/lib/validation/DeckValidator'
+import { TargetedRefinementEngine } from '@/lib/validation/TargetedRefinement'
 import { FrameworkAnalyzer } from '@/lib/validation/frameworkAnalysis'
 import { getFramework, Framework } from '@/lib/validation/supportedFrameworks'
 import { WorkflowLogger } from '@/lib/workflow-logger'
@@ -37,19 +39,29 @@ export interface IterativeGenerationResult {
   validationScores?: {
     outline: number
     slides: number[]
+    deck?: DeckValidationFeedback
     overall: number
   }
   tokensUsed?: {
     outline: number
     slides: number
     validation: number
+    deckValidation?: number
+    refinement?: number
     total: number
   }
   generationTime?: {
     outline: number
     slides: number
     validation: number
+    deckValidation?: number
+    refinement?: number
     total: number
+  }
+  refinements?: {
+    count: number
+    improved: number
+    details?: any[]
   }
   errors?: string[]
 }
@@ -57,8 +69,12 @@ export interface IterativeGenerationResult {
 export interface IterativeGenerationOptions {
   validateOutline?: boolean
   validateSlides?: boolean
+  validateDeck?: boolean
+  enableRefinement?: boolean
   maxSlideRetries?: number
   minSlideScore?: number
+  minDeckScore?: number
+  maxRefinementTargets?: number
   progressCallback?: (progress: IterativeGenerationProgress) => void
   streamProgress?: boolean
 }
@@ -68,6 +84,8 @@ export class IterativeOrchestrator {
   private slideGenerator: SlideGenerator
   private outlineValidator: OutlineValidator
   private slideValidator: SlideValidator
+  private deckValidator: DeckValidator
+  private refinementEngine: TargetedRefinementEngine
   private frameworkAnalyzer: FrameworkAnalyzer
   private logger: WorkflowLogger
   private progressCallback?: (progress: IterativeGenerationProgress) => void
@@ -81,6 +99,8 @@ export class IterativeOrchestrator {
     this.slideGenerator = new SlideGenerator(apiKey, logger)
     this.outlineValidator = new OutlineValidator(apiKey, undefined, logger)
     this.slideValidator = new SlideValidator(apiKey, undefined, logger)
+    this.deckValidator = new DeckValidator(apiKey, undefined, logger)
+    this.refinementEngine = new TargetedRefinementEngine(apiKey, logger)
     this.frameworkAnalyzer = new FrameworkAnalyzer(apiKey)
     this.logger = logger
     this.progressCallback = progressCallback
@@ -267,16 +287,16 @@ export class IterativeOrchestrator {
 
       generationTime.slides = Date.now() - slidesStartTime
 
-      // Phase 3: Final Assembly
+      // Phase 3: Deck Validation & Refinement
       this.updateProgress({
         phase: 'validation',
-        currentStep: 'Assembling final presentation',
+        currentStep: 'Validating presentation cohesiveness',
         percentComplete: 85,
-        message: 'Finalizing presentation...'
+        message: 'Checking narrative flow and coherence...'
       })
 
-      // Create final presentation
-      const presentation: PresentationData = {
+      // Create presentation for validation
+      let presentation: PresentationData = {
         id: outline.id,
         title: outline.title,
         subtitle: outline.subtitle,
@@ -285,10 +305,107 @@ export class IterativeOrchestrator {
         slides: generatedSlides
       }
 
+      // Deck validation (if enabled)
+      let deckValidation: DeckValidationFeedback | undefined
+      let refinementResults: any[] = []
+      const deckValidationStartTime = Date.now()
+
+      const {
+        validateDeck = true,
+        enableRefinement = true,
+        minDeckScore = 70,
+        maxRefinementTargets = 3
+      } = options
+
+      if (validateDeck) {
+        try {
+          deckValidation = await this.deckValidator.validateDeck(
+            presentation,
+            request,
+            framework
+          )
+
+          tokensUsed.deckValidation = 1000 // Estimate
+
+          this.logger.info('DECK_VALIDATION', 'Deck validation complete', {
+            overall_score: deckValidation.overallScore,
+            narrative_flow: deckValidation.narrativeFlow.score,
+            user_intent: deckValidation.userIntentFulfillment.score
+          })
+
+          // Check if refinement is needed
+          if (enableRefinement && deckValidation.overallScore < minDeckScore) {
+            this.updateProgress({
+              phase: 'validation',
+              currentStep: 'Applying targeted refinements',
+              percentComplete: 90,
+              message: 'Improving specific slides based on feedback...'
+            })
+
+            // Identify refinement targets
+            const refinementTargets = this.deckValidator.identifyRefinementTargets(
+              deckValidation,
+              presentation
+            ).slice(0, maxRefinementTargets) // Limit refinements
+
+            if (refinementTargets.length > 0) {
+              this.logger.info('TARGETED_REFINEMENT', 'Starting targeted refinements', {
+                targets: refinementTargets.length,
+                priorities: refinementTargets.map(t => t.priority)
+              })
+
+              // Apply refinements
+              const refinementStart = Date.now()
+              const results = await this.refinementEngine.refineMultipleSlides(
+                presentation.slides,
+                refinementTargets,
+                {
+                  title: presentation.title,
+                  audience: request.audience,
+                  tone: request.tone
+                }
+              )
+
+              refinementResults = results
+              generationTime.refinement = Date.now() - refinementStart
+              tokensUsed.refinement = results.length * 500 // Estimate
+
+              // Count successful refinements
+              const successfulRefinements = results.filter(r => r.success).length
+
+              this.logger.success('TARGETED_REFINEMENT', 'Refinements complete', {
+                attempted: results.length,
+                successful: successfulRefinements
+              })
+
+              // Re-validate if refinements were made
+              if (successfulRefinements > 0) {
+                deckValidation = await this.deckValidator.validateDeck(
+                  presentation,
+                  request,
+                  framework
+                )
+              }
+            }
+          }
+
+        } catch (error) {
+          this.logger.warning('DECK_VALIDATION', 'Deck validation failed', {
+            error: error instanceof Error ? error.message : 'Unknown error'
+          })
+        }
+      }
+
+      generationTime.deckValidation = Date.now() - deckValidationStartTime
+
       // Calculate overall validation score
-      const overallScore = Math.round(
-        (outlineScore + slideScores.reduce((a, b) => a + b, 0) / slideScores.length) / 2
-      )
+      const slideAverage = slideScores.length > 0
+        ? slideScores.reduce((a, b) => a + b, 0) / slideScores.length
+        : 0
+
+      const overallScore = deckValidation
+        ? Math.round((outlineScore + slideAverage + deckValidation.overallScore) / 3)
+        : Math.round((outlineScore + slideAverage) / 2)
 
       this.updateProgress({
         phase: 'complete',
@@ -300,11 +417,14 @@ export class IterativeOrchestrator {
 
       // Calculate totals
       generationTime.total = Date.now() - startTime
-      tokensUsed.total = tokensUsed.outline + tokensUsed.slides + tokensUsed.validation
+      tokensUsed.total = tokensUsed.outline + tokensUsed.slides + tokensUsed.validation +
+        (tokensUsed.deckValidation || 0) + (tokensUsed.refinement || 0)
 
       this.logger.success('ITERATIVE_ORCHESTRATOR', 'Presentation generation complete', {
         slides_generated: generatedSlides.length,
         overall_score: overallScore,
+        deck_validation: deckValidation?.overallScore,
+        refinements_applied: refinementResults.filter(r => r.success).length,
         total_tokens: tokensUsed.total,
         total_time_ms: generationTime.total,
         errors: errors.length
@@ -317,10 +437,16 @@ export class IterativeOrchestrator {
         validationScores: {
           outline: outlineScore,
           slides: slideScores,
+          deck: deckValidation,
           overall: overallScore
         },
         tokensUsed,
         generationTime,
+        refinements: refinementResults.length > 0 ? {
+          count: refinementResults.length,
+          improved: refinementResults.filter(r => r.success).length,
+          details: refinementResults
+        } : undefined,
         errors: errors.length > 0 ? errors : undefined
       }
 

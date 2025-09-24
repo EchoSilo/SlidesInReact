@@ -111,10 +111,16 @@ function streamGeneration(
 
         const orchestrator = new IterativeOrchestrator(apiKey, logger, progressCallback)
 
-        // Generate presentation
+        // Generate presentation with full validation pipeline
         const result = await orchestrator.generatePresentation(request, {
           validateOutline: true,
           validateSlides: true,
+          validateDeck: true,
+          enableRefinement: true,
+          maxSlideRetries: 2,
+          minSlideScore: 60,
+          minDeckScore: 70,
+          maxRefinementTargets: 3,
           progressCallback
         })
 
@@ -168,10 +174,16 @@ async function regularGeneration(
     // Create orchestrator
     const orchestrator = new IterativeOrchestrator(apiKey, logger)
 
-    // Generate presentation
+    // Generate presentation with full validation pipeline
     const result = await orchestrator.generatePresentation(request, {
       validateOutline: true,
-      validateSlides: true
+      validateSlides: true,
+      validateDeck: true,
+      enableRefinement: true,
+      maxSlideRetries: 2,
+      minSlideScore: 60,
+      minDeckScore: 70,
+      maxRefinementTargets: 3
     })
 
     logger.finalizeLogFile()

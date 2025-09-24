@@ -273,7 +273,23 @@ export default function TestIterativePage() {
                           result.validationScores.slides.length
                         )}/100
                       </div>
-                      <div className="font-medium">
+                      {result.validationScores.deck && (
+                        <>
+                          <div className="mt-2 pt-2 border-t">
+                            <div className="font-medium">Deck Validation:</div>
+                            <div className="ml-2">
+                              Narrative Flow: {result.validationScores.deck.narrativeFlow?.score}/100
+                            </div>
+                            <div className="ml-2">
+                              User Intent: {result.validationScores.deck.userIntentFulfillment?.score}/100
+                            </div>
+                            <div className="ml-2">
+                              Cohesiveness: {result.validationScores.deck.cohesiveness?.score}/100
+                            </div>
+                          </div>
+                        </>
+                      )}
+                      <div className="font-medium pt-2">
                         Overall: {result.validationScores.overall}/100
                       </div>
                     </div>
@@ -289,6 +305,17 @@ export default function TestIterativePage() {
                       <div>Slides: {result.tokensUsed.slides}</div>
                       <div>Validation: {result.tokensUsed.validation}</div>
                       <div className="font-medium">Total: {result.tokensUsed.total}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Refinements */}
+                {result.refinements && result.refinements.count > 0 && (
+                  <div className="p-3 bg-purple-50 rounded-md">
+                    <h4 className="font-medium mb-2">Targeted Refinements</h4>
+                    <div className="text-sm space-y-1">
+                      <div>Attempted: {result.refinements.count}</div>
+                      <div>Successful: {result.refinements.improved}</div>
                     </div>
                   </div>
                 )}
