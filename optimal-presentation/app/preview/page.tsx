@@ -20,7 +20,11 @@ import {
   Copy,
   Home,
   MessageCircle,
-  X as CloseIcon
+  X as CloseIcon,
+  PanelLeftClose,
+  PanelRightClose,
+  PanelLeft,
+  PanelRight
 } from 'lucide-react'
 import Link from 'next/link'
 import { exportToPNG, exportToPPTX } from '@/lib/exportUtils'
@@ -50,21 +54,43 @@ export default function PreviewPage() {
   } = usePresentationData()
 
   const [isExporting, setIsExporting] = useState(false)
-  const [showChat, setShowChat] = useState(false)
+  const [showChat, setShowChat] = useState(true) // Default to true for Replit-style
+  const [showNav, setShowNav] = useState(true) // Default to true for navigation panel
+  const [navWidth, setNavWidth] = useState(250) // Default nav width
+  const [chatWidth, setChatWidth] = useState(400) // Default chat width
 
-  // Add ESC key listener for closing chat
+  // Load panel preferences from localStorage
+  useEffect(() => {
+    const savedShowChat = localStorage.getItem('showChat')
+    const savedShowNav = localStorage.getItem('showNav')
+    if (savedShowChat !== null) setShowChat(savedShowChat === 'true')
+    if (savedShowNav !== null) setShowNav(savedShowNav === 'true')
+  }, [])
+
+  // Save panel preferences to localStorage
+  useEffect(() => {
+    localStorage.setItem('showChat', showChat.toString())
+    localStorage.setItem('showNav', showNav.toString())
+  }, [showChat, showNav])
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && showChat) {
-        setShowChat(false)
+      // Ctrl/Cmd + B: Toggle navigation
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault()
+        setShowNav(prev => !prev)
+      }
+      // Ctrl/Cmd + K: Toggle chat
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        setShowChat(prev => !prev)
       }
     }
 
-    if (showChat) {
-      document.addEventListener('keydown', handleKeyDown)
-      return () => document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [showChat])
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   if (!presentation) {
     return (
@@ -96,14 +122,12 @@ export default function PreviewPage() {
     setIsExporting(true)
     try {
       if (format === 'png') {
-        // Export current slide as PNG
         const slideElement = document.getElementById('current-slide')
         if (slideElement) {
           const filename = `${presentation.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}-slide-${currentSlideIndex + 1}.png`
           await exportToPNG(slideElement, filename)
         }
       } else {
-        // Export complete presentation to PPTX
         await exportToPPTX(presentation)
       }
     } catch (error) {
@@ -129,127 +153,148 @@ export default function PreviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="container mx-auto px-6 py-6">
-        {/* Top Navigation */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-6">
-            <Link href="/">
-              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                <Home className="w-4 h-4 mr-2" />
-                Hub
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-xl font-semibold text-foreground">
-                {presentation.title}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {presentation.subtitle}
-              </p>
-            </div>
-            {hasUnsavedChanges && (
-              <div className="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-md">
-                Unsaved changes
-              </div>
-            )}
-          </div>
+    <div className="h-screen flex flex-col bg-white overflow-hidden">
+      {/* Slim Header - 3rem height like Replit */}
+      <header className="h-12 border-b border-gray-200 bg-white flex items-center justify-between px-4 flex-shrink-0">
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <Button variant="ghost" size="sm" className="h-8">
+              <Home className="w-4 h-4 mr-2" />
+              Hub
+            </Button>
+          </Link>
 
-          <div className="flex items-center gap-3">
-            <ApiConnectionIndicator showText={false} />
-
-            {hasUnsavedChanges && (
-              <div className="flex gap-1">
-                <Button onClick={saveChanges} size="sm" variant="ghost">
-                  <Save className="w-4 h-4" />
-                </Button>
-                <Button onClick={discardChanges} size="sm" variant="ghost">
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-
+          <div className="flex items-center gap-2">
             <Button
-              onClick={() => setIsEditing(!isEditing)}
-              variant={isEditing ? "default" : "ghost"}
+              onClick={() => setShowNav(!showNav)}
+              variant="ghost"
               size="sm"
+              className="h-8 px-2"
+              title={`${showNav ? 'Hide' : 'Show'} navigation (Ctrl+B)`}
             >
-              <Edit3 className="w-4 h-4 mr-1" />
-              {isEditing ? 'Exit Edit' : 'Edit'}
+              {showNav ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
             </Button>
 
-            <Button
-              onClick={() => setShowChat(!showChat)}
-              variant={showChat ? "default" : "ghost"}
-              size="sm"
-            >
-              <MessageCircle className="w-4 h-4 mr-1" />
-              Chat
-            </Button>
+            <span className="text-sm font-medium text-foreground">
+              {presentation.title}
+            </span>
 
-            <div className="flex gap-1">
-              <Button
-                onClick={() => handleExport('png')}
-                disabled={isExporting}
-                variant="ghost"
-                size="sm"
-              >
-                <FileImage className="w-4 h-4" />
-              </Button>
-              <Button
-                onClick={() => handleExport('pptx')}
-                disabled={isExporting}
-                variant="ghost"
-                size="sm"
-              >
-                <FileDown className="w-4 h-4" />
-              </Button>
-            </div>
+            {hasUnsavedChanges && (
+              <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded">
+                Unsaved
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-12 gap-6">
-          {/* Slide Thumbnails */}
-          <div className="col-span-3">
-            <Card className="p-4 border border-gray-200 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-medium text-foreground text-sm">
-                  {totalSlides} slides
-                </h3>
-                {isEditing && (
-                  <Button
-                    onClick={createNewSlide}
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 text-xs"
-                  >
-                    <Plus className="w-3 h-3 mr-1" />
-                    Add
-                  </Button>
-                )}
-              </div>
+        <div className="flex items-center gap-2">
+          <ApiConnectionIndicator showText={false} />
 
-              <div className="space-y-1">
-                {presentation.slides.map((slide, index) => (
-                  <div
-                    key={slide.id}
-                    className={`group relative p-2 rounded cursor-pointer transition-all ${
-                      index === currentSlideIndex
-                        ? 'bg-primary/10 border border-primary/20'
-                        : 'hover:bg-gray-50 border border-transparent'
-                    }`}
-                    onClick={() => goToSlide(index)}
-                  >
-                    <div className="text-xs font-medium text-foreground mb-1 truncate">
-                      {index + 1}. {slide.title}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {slide.layout}
+          {hasUnsavedChanges && (
+            <>
+              <Button onClick={saveChanges} size="sm" variant="ghost" className="h-8">
+                <Save className="w-4 h-4" />
+              </Button>
+              <Button onClick={discardChanges} size="sm" variant="ghost" className="h-8">
+                <X className="w-4 h-4" />
+              </Button>
+            </>
+          )}
+
+          <Button
+            onClick={() => setIsEditing(!isEditing)}
+            variant={isEditing ? "default" : "ghost"}
+            size="sm"
+            className="h-8"
+          >
+            <Edit3 className="w-4 h-4 mr-1" />
+            {isEditing ? 'Exit Edit' : 'Edit'}
+          </Button>
+
+          <div className="flex gap-1">
+            <Button
+              onClick={() => handleExport('png')}
+              disabled={isExporting}
+              variant="ghost"
+              size="sm"
+              className="h-8"
+            >
+              <FileImage className="w-4 h-4" />
+            </Button>
+            <Button
+              onClick={() => handleExport('pptx')}
+              disabled={isExporting}
+              variant="ghost"
+              size="sm"
+              className="h-8"
+            >
+              <FileDown className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <Button
+            onClick={() => setShowChat(!showChat)}
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2"
+            title={`${showChat ? 'Hide' : 'Show'} chat (Ctrl+K)`}
+          >
+            {showChat ? <PanelRightClose className="w-4 h-4" /> : <PanelRight className="w-4 h-4" />}
+          </Button>
+        </div>
+      </header>
+
+      {/* Main Content Area - Three Column Layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Panel - Slide Navigator */}
+        <div
+          className={`bg-gray-50 border-r border-gray-200 flex flex-col transition-all duration-300 ${
+            showNav ? 'w-[250px]' : 'w-0'
+          } overflow-hidden`}
+        >
+          <div className="p-3 border-b border-gray-200 bg-white">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-foreground">
+                {totalSlides} slides
+              </h3>
+              {isEditing && (
+                <Button
+                  onClick={createNewSlide}
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs px-2"
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  Add
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-2">
+            <div className="space-y-1">
+              {presentation.slides.map((slide, index) => (
+                <div
+                  key={slide.id}
+                  className={`group relative p-2 rounded cursor-pointer transition-all ${
+                    index === currentSlideIndex
+                      ? 'bg-primary/10 border border-primary/20'
+                      : 'hover:bg-gray-100 border border-transparent'
+                  }`}
+                  onClick={() => goToSlide(index)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-foreground truncate">
+                        {index + 1}. {slide.title}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {slide.layout}
+                      </div>
                     </div>
 
                     {isEditing && (
-                      <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -259,7 +304,7 @@ export default function PreviewPage() {
                           variant="ghost"
                           className="h-5 w-5 p-0"
                         >
-                          <Copy className="w-2.5 h-2.5" />
+                          <Copy className="w-3 h-3" />
                         </Button>
                         {totalSlides > 1 && (
                           <Button
@@ -271,24 +316,25 @@ export default function PreviewPage() {
                             variant="ghost"
                             className="h-5 w-5 p-0 text-red-500 hover:text-red-700"
                           >
-                            <Trash2 className="w-2.5 h-2.5" />
+                            <Trash2 className="w-3 h-3" />
                           </Button>
                         )}
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
-            </Card>
+                </div>
+              ))}
+            </div>
           </div>
+        </div>
 
-          {/* Current Slide */}
-          <div className="col-span-9 space-y-4">
-            <Card className="p-0 overflow-hidden border border-gray-200 shadow-sm">
+        {/* Center Panel - Main Presentation Area */}
+        <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
+          <div className="flex-1 p-4 overflow-auto">
+            <Card className="h-full p-0 overflow-hidden border border-gray-200 shadow-sm bg-white">
               <div
                 id="current-slide"
-                className="aspect-video bg-white"
-                style={{ minHeight: '600px' }}
+                className="h-full"
               >
                 {currentSlide && (
                   <DynamicSlide
@@ -300,14 +346,17 @@ export default function PreviewPage() {
                 )}
               </div>
             </Card>
+          </div>
 
-            {/* Navigation */}
+          {/* Navigation Controls */}
+          <div className="px-4 pb-4">
             <div className="flex items-center justify-between">
               <Button
                 onClick={previousSlide}
                 disabled={isFirstSlide}
                 variant="ghost"
                 size="sm"
+                className="h-8"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Previous
@@ -337,68 +386,38 @@ export default function PreviewPage() {
                 disabled={isLastSlide}
                 variant="ghost"
                 size="sm"
+                className="h-8"
               >
                 Next
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
           </div>
-
         </div>
 
-        {/* Chat Overlay */}
-        {showChat && presentation.slides && (
-          <>
-            {/* Backdrop - only covers the main content area, not header */}
-            <div
-              className="fixed top-0 left-0 right-0 bottom-0 bg-black/10 z-40 transition-opacity duration-200"
-              onClick={() => setShowChat(false)}
-              aria-label="Close chat"
-              style={{ marginTop: '5rem' }} // Adjust based on header height
-            />
-
-            {/* Chat Panel - positioned to not cover header */}
-            <div
-              className="fixed right-0 w-[28rem] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col"
-              style={{
-                top: '5rem', // Start below header
-                bottom: 0,
-                borderLeft: '1px solid #e5e7eb'
+        {/* Right Panel - Chat Assistant */}
+        {presentation.slides && (
+          <div
+            className={`border-l border-gray-200 bg-white transition-all duration-300 ${
+              showChat ? 'w-[400px]' : 'w-0'
+            } overflow-hidden`}
+          >
+            <SlideChat
+              slides={presentation.slides}
+              currentSlideIndex={currentSlideIndex}
+              onSlideUpdate={(slideIndex, updatedSlide) => {
+                updateSlide(updatedSlide)
               }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Close button */}
-              <Button
-                onClick={() => setShowChat(false)}
-                variant="ghost"
-                size="sm"
-                className="absolute top-4 right-4 z-10 h-8 w-8 p-0 hover:bg-gray-100"
-                aria-label="Close chat"
-              >
-                <CloseIcon className="w-4 h-4" />
-              </Button>
-
-              <SlideChat
-                slides={presentation.slides}
-                currentSlideIndex={currentSlideIndex}
-                onSlideUpdate={(slideIndex, updatedSlide) => {
-                  // Update the specific slide
-                  updateSlide(updatedSlide)
-                }}
-                onSlideChange={(slideIndex) => {
-                  // Navigate to the selected slide
-                  goToSlide(slideIndex)
-                }}
-                onSlideAdd={(newSlide, position) => {
-                  // Add new slide at the specified position
-                  addSlide(newSlide, position)
-                  // Navigate to the new slide
-                  goToSlide(position)
-                }}
-                className="h-full"
-              />
-            </div>
-          </>
+              onSlideChange={(slideIndex) => {
+                goToSlide(slideIndex)
+              }}
+              onSlideAdd={(newSlide, position) => {
+                addSlide(newSlide, position)
+                goToSlide(position)
+              }}
+              className="h-full"
+            />
+          </div>
         )}
       </div>
     </div>
