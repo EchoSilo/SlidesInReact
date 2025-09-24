@@ -52,6 +52,20 @@ export default function PreviewPage() {
   const [isExporting, setIsExporting] = useState(false)
   const [showChat, setShowChat] = useState(false)
 
+  // Add ESC key listener for closing chat
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showChat) {
+        setShowChat(false)
+      }
+    }
+
+    if (showChat) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [showChat])
+
   if (!presentation) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
@@ -195,9 +209,9 @@ export default function PreviewPage() {
         </div>
 
         {/* Main Content */}
-        <div className={`grid gap-6 ${showChat ? 'grid-cols-12' : 'grid-cols-12'}`}>
+        <div className="grid grid-cols-12 gap-6">
           {/* Slide Thumbnails */}
-          <div className={showChat ? 'col-span-2' : 'col-span-3'}>
+          <div className="col-span-3">
             <Card className="p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-medium text-foreground text-sm">
@@ -227,14 +241,14 @@ export default function PreviewPage() {
                     }`}
                     onClick={() => goToSlide(index)}
                   >
-                    <div className={`text-xs font-medium text-foreground mb-1 truncate ${showChat ? 'text-[10px]' : ''}`}>
-                      {index + 1}. {showChat ? slide.title.substring(0, 15) + '...' : slide.title}
+                    <div className="text-xs font-medium text-foreground mb-1 truncate">
+                      {index + 1}. {slide.title}
                     </div>
-                    <div className={`text-xs text-muted-foreground ${showChat ? 'text-[9px]' : ''}`}>
+                    <div className="text-xs text-muted-foreground">
                       {slide.layout}
                     </div>
 
-                    {isEditing && !showChat && (
+                    {isEditing && (
                       <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                         <Button
                           onClick={(e) => {
@@ -269,7 +283,7 @@ export default function PreviewPage() {
           </div>
 
           {/* Current Slide */}
-          <div className={`space-y-4 ${showChat ? 'col-span-6' : 'col-span-9'}`}>
+          <div className="col-span-9 space-y-4">
             <Card className="p-0 overflow-hidden border border-gray-200 shadow-sm">
               <div
                 id="current-slide"
@@ -330,33 +344,56 @@ export default function PreviewPage() {
             </div>
           </div>
 
-          {/* Chat Panel */}
-          {showChat && presentation.slides && (
-            <div className="col-span-4">
-              <div className="sticky top-6">
-                <SlideChat
-                  slides={presentation.slides}
-                  currentSlideIndex={currentSlideIndex}
-                  onSlideUpdate={(slideIndex, updatedSlide) => {
-                    // Update the specific slide
-                    updateSlide(updatedSlide)
-                  }}
-                  onSlideChange={(slideIndex) => {
-                    // Navigate to the selected slide
-                    goToSlide(slideIndex)
-                  }}
-                  onSlideAdd={(newSlide, position) => {
-                    // Add new slide at the specified position
-                    addSlide(newSlide, position)
-                    // Navigate to the new slide
-                    goToSlide(position)
-                  }}
-                  className="h-[calc(100vh-12rem)]"
-                />
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* Chat Overlay */}
+        {showChat && presentation.slides && (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/20 z-40 transition-opacity duration-200"
+              onClick={() => setShowChat(false)}
+              aria-label="Close chat"
+            />
+
+            {/* Chat Panel */}
+            <div
+              className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close button */}
+              <Button
+                onClick={() => setShowChat(false)}
+                variant="ghost"
+                size="sm"
+                className="absolute top-4 right-4 z-10 h-8 w-8 p-0 hover:bg-gray-100"
+                aria-label="Close chat"
+              >
+                <CloseIcon className="w-4 h-4" />
+              </Button>
+
+              <SlideChat
+                slides={presentation.slides}
+                currentSlideIndex={currentSlideIndex}
+                onSlideUpdate={(slideIndex, updatedSlide) => {
+                  // Update the specific slide
+                  updateSlide(updatedSlide)
+                }}
+                onSlideChange={(slideIndex) => {
+                  // Navigate to the selected slide
+                  goToSlide(slideIndex)
+                }}
+                onSlideAdd={(newSlide, position) => {
+                  // Add new slide at the specified position
+                  addSlide(newSlide, position)
+                  // Navigate to the new slide
+                  goToSlide(position)
+                }}
+                className="h-full"
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

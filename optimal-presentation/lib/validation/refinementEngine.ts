@@ -13,6 +13,8 @@ import {
   generateFocusedImprovementPrompt,
   generateRoundSpecificPrompt
 } from './refinementPrompts'
+import { ContentRegenerator, RegenerationResult } from './contentRegenerator'
+import { ValidationFeedback } from './feedbackToPromptConverter'
 
 /**
  * Refinement round result interface
@@ -100,17 +102,20 @@ export interface RefinementProgressCallback {
 export class RefinementEngine {
   private validationAgent: ValidationAgent
   private frameworkAnalyzer: FrameworkAnalyzer
+  private contentRegenerator: ContentRegenerator
   private progressTracker: ProgressTracker
   private config: RefinementConfig
+  private apiKey: string
 
   constructor(apiKey: string, config: Partial<RefinementConfig> = {}) {
+    this.apiKey = apiKey
     // Set default configuration
     this.config = {
       maxRefinementRounds: 3,
       targetQualityScore: 80,
       minConfidenceThreshold: 70,
       includeMinorIssues: true,
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-3-haiku-20240307',
       temperature: 0.3,
       maxTokens: 4000,
       minimumImprovement: 2,
@@ -123,6 +128,11 @@ export class RefinementEngine {
 
     this.validationAgent = new ValidationAgent(apiKey, this.config)
     this.frameworkAnalyzer = new FrameworkAnalyzer(apiKey)
+    this.contentRegenerator = new ContentRegenerator(apiKey, {
+      model: this.config.model,
+      temperature: this.config.temperature,
+      maxTokens: this.config.maxTokens
+    })
     this.progressTracker = new ProgressTracker()
   }
 
@@ -342,13 +352,32 @@ export class RefinementEngine {
       this.progressTracker.updateStage(RefinementStage.GENERATING, `Round ${round}: Generating improved content`)
       progressCallback?.(this.progressTracker.getProgress())
 
-      // Note: In a real implementation, this would call the content generation API
-      // For now, we'll simulate the improvement process
-      const improvedPresentation = await this.simulateContentImprovement(
+      // Build validation feedback for content regeneration
+      const validationFeedback: ValidationFeedback = {
+        issues: roundFocus.criticalIssues,
+        dimensionScores: {} as any, // Will be populated from current validation
+        overallScore: currentScore,
+        targetScore: this.config.targetQualityScore,
+        currentPresentation: presentation,
+        framework: frameworkAnalysis.recommendation.framework,
+        preserveSlides: this.identifyGoodSlides(presentation, identifiedIssues),
+        round
+      }
+
+      // Use real content regeneration
+      const regenerationResult = await this.contentRegenerator.regenerateContent(
         presentation,
-        refinementPrompt,
-        roundFocus.targetImprovement
+        validationFeedback,
+        originalRequest,
+        frameworkAnalysis.recommendation.framework,
+        round
       )
+
+      if (!regenerationResult.success || !regenerationResult.presentation) {
+        throw new Error(`Content regeneration failed: ${regenerationResult.error || 'Unknown error'}`)
+      }
+
+      const improvedPresentation = regenerationResult.presentation
 
       // Validate improvements
       this.progressTracker.updateStage(RefinementStage.VALIDATING, `Round ${round}: Validating improvements`)
@@ -456,21 +485,30 @@ export class RefinementEngine {
   }
 
   /**
-   * Simulate content improvement (placeholder for actual generation API)
+   * Identify good slides to preserve during regeneration
    */
-  private async simulateContentImprovement(
+  private identifyGoodSlides(
     presentation: PresentationData,
-    refinementPrompt: string,
-    targetImprovement: number
-  ): Promise<PresentationData> {
-    // In a real implementation, this would:
-    // 1. Call the /api/generate endpoint with refinement instructions
-    // 2. Apply specific improvements based on identified issues
-    // 3. Maintain good content while fixing problems
+    issues: ValidationIssue[]
+  ): string[] {
+    const issuesBySlide = new Map<string, number>()
 
-    // For now, return the same presentation with simulated improvement
-    // The validation will simulate score improvement
-    return presentation
+    // Count severity-weighted issues per slide
+    issues.forEach(issue => {
+      const slideId = issue.slideId || 'general'
+      const weight = issue.severity === IssueSeverity.CRITICAL ? 10
+        : issue.severity === IssueSeverity.IMPORTANT ? 5
+        : issue.severity === IssueSeverity.MINOR ? 2 : 1
+      issuesBySlide.set(slideId, (issuesBySlide.get(slideId) || 0) + weight)
+    })
+
+    // Return slides with low issue scores (high quality)
+    return presentation.slides
+      .filter(slide => {
+        const issueScore = issuesBySlide.get(slide.id) || 0
+        return issueScore < 5 // Threshold for "good" slides
+      })
+      .map(slide => slide.id)
   }
 
   /**
@@ -611,7 +649,7 @@ export const DEFAULT_REFINEMENT_CONFIG: RefinementConfig = {
   targetQualityScore: 80,
   minConfidenceThreshold: 70,
   includeMinorIssues: true,
-  model: 'claude-3-5-sonnet-20241022',
+  model: 'claude-3-haiku-20240307',
   temperature: 0.3,
   maxTokens: 4000,
   minimumImprovement: 2,

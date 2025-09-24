@@ -30,6 +30,9 @@ export interface SlideContent {
   diagram?: DiagramData
   quote?: string
   callout?: string
+  chart?: ChartData
+  table?: TableData
+  timeline?: TimelineData
 }
 
 export interface Section {
@@ -60,6 +63,38 @@ export interface DiagramElement {
   style?: "primary" | "secondary" | "accent" | "warning"
 }
 
+export interface ChartData {
+  type: "bar" | "line" | "area" | "pie" | "donut" | "radar" | "scatter"
+  data: Array<{ [key: string]: string | number }>
+  config: { [key: string]: { label?: string; color?: string } }
+  title?: string
+  description?: string
+}
+
+export interface TableData {
+  headers: string[]
+  rows: Array<string[]>
+  title?: string
+  description?: string
+  highlight?: number[] // row indices to highlight
+}
+
+export interface TimelineData {
+  events: TimelineEvent[]
+  title?: string
+  description?: string
+  orientation?: "horizontal" | "vertical"
+}
+
+export interface TimelineEvent {
+  id: string
+  title: string
+  description?: string
+  date?: string
+  status?: "completed" | "current" | "upcoming"
+  icon?: string
+}
+
 export type SlideLayout =
   | "title-only"
   | "title-content"
@@ -70,6 +105,11 @@ export type SlideLayout =
   | "diagram"
   | "metrics"
   | "quote"
+  | "circle"
+  | "diamond"
+  | "table"
+  | "timeline"
+  | "chart"
 
 export interface SlideMetadata {
   speaker_notes?: string

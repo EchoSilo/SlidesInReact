@@ -92,7 +92,7 @@ export class ValidationAgent {
       targetQualityScore: 80,
       minConfidenceThreshold: 70,
       includeMinorIssues: true,
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-3-haiku-20240307',
       temperature: 0.3,
       maxTokens: 4000,
       ...config
@@ -520,7 +520,7 @@ export const DEFAULT_VALIDATION_CONFIG: ValidationConfig = {
   targetQualityScore: 80,
   minConfidenceThreshold: 70,
   includeMinorIssues: true,
-  model: 'claude-3-5-sonnet-20241022',
+  model: 'claude-3-haiku-20240307',
   temperature: 0.3,
   maxTokens: 4000
 }

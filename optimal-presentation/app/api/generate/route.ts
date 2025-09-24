@@ -6,6 +6,7 @@ import { RefinementEngine } from '@/lib/validation/refinementEngine'
 import { FrameworkAnalyzer, getQuickFrameworkRecommendation } from '@/lib/validation/frameworkAnalysis'
 import { getDefaultAnthropicClient, createAnthropicClient } from '@/lib/anthropic-client'
 import { WorkflowLogger } from '@/lib/workflow-logger'
+import { RefinementOrchestrator, createRefinementOrchestrator } from '@/lib/validation/refinementOrchestrator'
 
 const anthropic = getDefaultAnthropicClient()
 
@@ -16,6 +17,7 @@ interface EnhancedGenerationRequest extends GenerationRequest {
     targetQualityScore?: number
     maxRefinementRounds?: number
     minimumImprovement?: number
+    useOrchestrator?: boolean // Use the new orchestrator for refinement
   }
   streamProgress?: boolean
 }
@@ -238,20 +240,12 @@ export async function POST(request: NextRequest) {
     let jsonParsingFallbackUsed = false
 
     try {
-      // Clean the response to ensure it's valid JSON
+      // Simple JSON cleanup
       let jsonStr = content.text.trim()
 
-      // Check if we need to use markdown cleanup fallback
-      if (jsonStr.startsWith('```json') || jsonStr.startsWith('```')) {
-        jsonParsingFallbackUsed = true
-        logger.warning('JSON_PARSING', 'LLM response has markdown formatting, cleaning automatically')
-        fallbacksUsed.push('JSON Parsing: LLM returned markdown-wrapped JSON, cleaned automatically')
-
-        if (jsonStr.startsWith('```json')) {
-          jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/, '')
-        } else if (jsonStr.startsWith('```')) {
-          jsonStr = jsonStr.replace(/^```\s*/, '').replace(/\s*```$/, '')
-        }
+      // Remove markdown if present
+      if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
       }
 
       presentationData = JSON.parse(jsonStr)
@@ -313,41 +307,84 @@ export async function POST(request: NextRequest) {
       workflowLogs: logger.exportLogs()
     }
 
-    // Multi-Agent validation and refinement pipeline (DEFAULT WORKFLOW)
+    // Multi-Agent validation and refinement pipeline
     logger.info('VALIDATION_PIPELINE', 'Starting multi-agent validation and refinement pipeline')
 
     try {
-      const validationResult = await performValidationPipeline(
-        presentationData,
-        body,
-        apiKey
-      )
+      // Check if we should use the new orchestrator
+      if (body.validationConfig?.useOrchestrator) {
+        logger.info('ORCHESTRATOR', 'Using new RefinementOrchestrator for content regeneration')
 
-      logger.success('VALIDATION_PIPELINE', 'Multi-agent validation completed successfully', {
-        initial_score: validationResult.initialScore,
-        final_score: validationResult.finalScore,
-        improvement: validationResult.totalImprovement,
-        rounds: validationResult.totalRounds,
-        target_achieved: validationResult.targetAchieved,
-        agents_used: ['FrameworkAnalyzer', 'ValidationAgent', 'RefinementEngine']
-      })
+        // Create and use the orchestrator
+        const orchestrator = createRefinementOrchestrator(apiKey, {
+          maxRounds: body.validationConfig.maxRefinementRounds || 3,
+          targetScore: body.validationConfig.targetQualityScore || 80,
+          minimumImprovement: body.validationConfig.minimumImprovement || 2,
+          enableDetailedLogging: true
+        })
 
-      // Add validation results to response
-      enhancedResponse.validationResults = {
-        initialScore: validationResult.initialScore,
-        finalScore: validationResult.finalScore,
-        improvement: validationResult.totalImprovement,
-        roundsCompleted: validationResult.totalRounds,
-        targetAchieved: validationResult.targetAchieved,
-        frameworkUsed: validationResult.frameworkAnalysis.recommendation.primary_framework
-      }
+        const orchestratorResult = await orchestrator.orchestrateRefinement(
+          presentationData,
+          body,
+          frameworkRecommendation.framework
+        )
 
-      // Use refined presentation if validation succeeded
-      if (validationResult.finalPresentation) {
-        enhancedResponse.presentation = validationResult.finalPresentation
-        logger.info('REFINEMENT_SUCCESS', 'Using refined presentation from multi-agent pipeline')
+        logger.success('ORCHESTRATOR', 'Orchestrated refinement completed', {
+          initial_score: orchestratorResult.initialScore,
+          final_score: orchestratorResult.finalScore,
+          improvement: orchestratorResult.totalImprovement,
+          rounds: orchestratorResult.history.length,
+          target_achieved: orchestratorResult.targetAchieved,
+          llm_calls: orchestratorResult.llmCalls
+        })
+
+        // Update response with orchestrator results
+        enhancedResponse.validationResults = {
+          initialScore: orchestratorResult.initialScore,
+          finalScore: orchestratorResult.finalScore,
+          improvement: orchestratorResult.totalImprovement,
+          roundsCompleted: orchestratorResult.history.length,
+          targetAchieved: orchestratorResult.targetAchieved,
+          frameworkUsed: orchestratorResult.frameworkAnalysis.recommendation.primary_framework
+        }
+
+        enhancedResponse.presentation = orchestratorResult.finalPresentation
+        logger.info('ORCHESTRATOR_SUCCESS', 'Using refined presentation from orchestrator')
+
       } else {
-        logger.warning('REFINEMENT_FALLBACK', 'Using original presentation (refinement did not improve quality)')
+        // Use existing validation pipeline
+        const validationResult = await performValidationPipeline(
+          presentationData,
+          body,
+          apiKey
+        )
+
+        logger.success('VALIDATION_PIPELINE', 'Multi-agent validation completed successfully', {
+          initial_score: validationResult.initialScore,
+          final_score: validationResult.finalScore,
+          improvement: validationResult.totalImprovement,
+          rounds: validationResult.totalRounds,
+          target_achieved: validationResult.targetAchieved,
+          agents_used: ['FrameworkAnalyzer', 'ValidationAgent', 'RefinementEngine']
+        })
+
+        // Add validation results to response
+        enhancedResponse.validationResults = {
+          initialScore: validationResult.initialScore,
+          finalScore: validationResult.finalScore,
+          improvement: validationResult.totalImprovement,
+          roundsCompleted: validationResult.totalRounds,
+          targetAchieved: validationResult.targetAchieved,
+          frameworkUsed: validationResult.frameworkAnalysis.recommendation.primary_framework
+        }
+
+        // Use refined presentation if validation succeeded
+        if (validationResult.finalPresentation) {
+          enhancedResponse.presentation = validationResult.finalPresentation
+          logger.info('REFINEMENT_SUCCESS', 'Using refined presentation from multi-agent pipeline')
+        } else {
+          logger.warning('REFINEMENT_FALLBACK', 'Using original presentation (refinement did not improve quality)')
+        }
       }
 
     } catch (validationError) {

@@ -32,14 +32,14 @@ export interface RoundPromptConfig {
 /**
  * Generate round-specific refinement prompt
  */
-export async function generateRoundSpecificPrompt(
+export function generateRoundSpecificPrompt(
   presentation: PresentationData,
   originalRequest: GenerationRequest,
   frameworkAnalysis: FrameworkAnalysisResult,
   round: number,
   criticalIssues: ValidationIssue[],
   targetImprovement: number
-): Promise<string> {
+): string {
   const roundConfig = getRoundConfiguration(round, criticalIssues, targetImprovement)
 
   switch (round) {

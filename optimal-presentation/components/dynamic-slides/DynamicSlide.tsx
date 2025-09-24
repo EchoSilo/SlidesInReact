@@ -6,6 +6,11 @@ import { MetricsSlide } from './MetricsSlide'
 import { BulletListSlide } from './BulletListSlide'
 import { TwoColumnSlide } from './TwoColumnSlide'
 import { CenteredSlide } from './CenteredSlide'
+import { ChartSlide } from './ChartSlide'
+import { CircleSlide } from './CircleSlide'
+import { DiamondSlide } from './DiamondSlide'
+import { TableSlide } from './TableSlide'
+import { TimelineSlide } from './TimelineSlide'
 
 interface DynamicSlideProps {
   slide: SlideData
@@ -40,6 +45,21 @@ export function DynamicSlide({ slide, isEditing = false, onEdit, className }: Dy
 
       case "metrics":
         return <MetricsSlide slide={slide} isEditing={isEditing} onEdit={onEdit} />
+
+      case "chart":
+        return <ChartSlide slide={slide} isEditing={isEditing} onEdit={onEdit} />
+
+      case "circle":
+        return <CircleSlide slide={slide} isEditing={isEditing} onEdit={onEdit} />
+
+      case "diamond":
+        return <DiamondSlide slide={slide} isEditing={isEditing} onEdit={onEdit} />
+
+      case "table":
+        return <TableSlide slide={slide} isEditing={isEditing} onEdit={onEdit} />
+
+      case "timeline":
+        return <TimelineSlide slide={slide} isEditing={isEditing} onEdit={onEdit} />
 
       default:
         return <ContentSlide slide={slide} isEditing={isEditing} onEdit={onEdit} />

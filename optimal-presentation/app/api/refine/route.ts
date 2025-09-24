@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PresentationData, GenerationRequest } from '@/lib/types'
 import { RefinementEngine, RefinementConfig, DEFAULT_REFINEMENT_CONFIG } from '@/lib/validation/refinementEngine'
 import { RefinementProgress } from '@/lib/validation/progressTracker'
+import { RefinementOrchestrator, createRefinementOrchestrator } from '@/lib/validation/refinementOrchestrator'
+import { getFramework } from '@/lib/validation/supportedFrameworks'
 import { z } from 'zod'
 
 // Request validation schema
@@ -40,8 +42,10 @@ const RefinementRequestSchema = z.object({
     audience: z.string().optional(),
     presentation_type: z.string().optional(),
     tone: z.string().optional(),
-    slide_count: z.number().optional()
+    slide_count: z.string().optional()
   }),
+  frameworkId: z.string().optional(),
+  useOrchestrator: z.boolean().optional(), // Option to use the new orchestrator
   config: z.object({
     maxRefinementRounds: z.number().min(1).max(3).optional(),
     targetQualityScore: z.number().min(50).max(100).optional(),

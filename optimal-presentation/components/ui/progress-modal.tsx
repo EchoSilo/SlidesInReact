@@ -75,7 +75,7 @@ export function ProgressModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-md"
+        className="sm:max-w-lg max-h-[80vh] flex flex-col"
         showCloseButton={isComplete || !!error}
       >
         <DialogHeader>
@@ -93,91 +93,92 @@ export function ProgressModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 flex flex-col space-y-4 min-h-0">
           {/* Error State */}
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex-shrink-0">
               <p className="text-red-700 text-sm">{error}</p>
             </div>
           )}
 
           {/* Success State */}
           {isComplete && !error && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex-shrink-0">
               <p className="text-green-700 text-sm">
                 Presentation generated successfully! Redirecting to preview...
               </p>
             </div>
           )}
 
-          {/* Progress Messages */}
-          <div className="relative h-48 overflow-hidden">
-            <div className="absolute inset-0 space-y-2">
-              {visibleMessages.map((message, index) => {
-                const Icon = getStatusIcon(message)
-                const isLatest = index === visibleMessages.length - 1
-                const isSecondLatest = index === visibleMessages.length - 2
+          {/* Progress Messages Container */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 relative overflow-hidden rounded-lg border border-gray-100 bg-gray-50/50">
+              <div className="absolute inset-0 flex flex-col justify-end p-2">
+                <div className="space-y-2">
+                  {visibleMessages.map((message, index) => {
+                    const Icon = getStatusIcon(message)
+                    const isLatest = index === visibleMessages.length - 1
+                    const isSecondLatest = index === visibleMessages.length - 2
 
-                return (
-                  <div
-                    key={message.id}
-                    className={cn(
-                      "flex items-start gap-3 p-3 rounded-lg border transition-all duration-500 ease-in-out transform",
-                      isLatest && "bg-blue-50 border-blue-200 translate-y-0 opacity-100 scale-100",
-                      isSecondLatest && "bg-gray-50 border-gray-200 -translate-y-2 opacity-75 scale-95",
-                      !isLatest && !isSecondLatest && "bg-gray-50 border-gray-200 -translate-y-4 opacity-50 scale-90"
-                    )}
-                    style={{
-                      animationDelay: `${index * 100}ms`,
-                    }}
-                  >
-                    <div className="flex-shrink-0">
-                      <Icon
+                    return (
+                      <div
+                        key={message.id}
                         className={cn(
-                          "w-4 h-4",
-                          getStatusColor(message),
-                          message.status === 'active' && "animate-spin"
+                          "flex items-start gap-3 p-2.5 rounded-md border transition-all duration-300 ease-out transform",
+                          isLatest && "bg-white border-blue-200 shadow-sm translate-y-0 opacity-100 scale-100",
+                          isSecondLatest && "bg-white/80 border-gray-200 -translate-y-1 opacity-80 scale-98",
+                          !isLatest && !isSecondLatest && "bg-white/60 border-gray-100 -translate-y-2 opacity-60 scale-95"
                         )}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={cn(
-                        "text-sm font-medium",
-                        isLatest ? "text-gray-900" : "text-gray-600"
-                      )}>
-                        {message.title}
-                      </p>
-                      {message.description && (
-                        <p className={cn(
-                          "text-xs mt-1",
-                          isLatest ? "text-gray-600" : "text-gray-500"
-                        )}>
-                          {message.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Progress indicator */}
-          {!isComplete && !error && (
-            <div className="flex items-center justify-center pt-2">
-              <div className="flex space-x-1">
-                {[...Array(3)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"
-                    style={{
-                      animationDelay: `${i * 200}ms`,
-                    }}
-                  />
-                ))}
+                      >
+                        <div className="flex-shrink-0 mt-0.5">
+                          <Icon
+                            className={cn(
+                              "w-3.5 h-3.5",
+                              getStatusColor(message),
+                              message.status === 'active' && "animate-spin"
+                            )}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={cn(
+                            "text-sm font-medium leading-tight",
+                            isLatest ? "text-gray-900" : "text-gray-600"
+                          )}>
+                            {message.title}
+                          </p>
+                          {message.description && (
+                            <p className={cn(
+                              "text-xs mt-0.5 leading-tight",
+                              isLatest ? "text-gray-600" : "text-gray-500"
+                            )}>
+                              {message.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             </div>
-          )}
+
+            {/* Progress indicator */}
+            {!isComplete && !error && (
+              <div className="flex items-center justify-center pt-3 flex-shrink-0">
+                <div className="flex space-x-1">
+                  {[...Array(3)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"
+                      style={{
+                        animationDelay: `${i * 200}ms`,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
