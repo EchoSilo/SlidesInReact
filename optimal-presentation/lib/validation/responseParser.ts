@@ -275,12 +275,14 @@ export class ValidationResponseParser {
    */
   private validateResponseStructure(response: RawValidationResponse): void {
     const requiredFields = [
-      'dimension_scores',
+      'framework_adherence_score',
+      'executive_readiness_score',
+      'content_clarity_score',
+      'business_impact_score',
       'overall_score',
       'quality_level',
       'primary_issue',
-      'primary_recommendation',
-      'framework_assessment'
+      'primary_recommendation'
     ]
 
     for (const field of requiredFields) {
@@ -289,22 +291,19 @@ export class ValidationResponseParser {
       }
     }
 
-    // Validate dimension scores structure
-    const requiredDimensions = [
-      'framework_adherence',
-      'executive_readiness',
-      'content_clarity',
-      'business_impact'
+    // Validate score fields are numbers
+    const scoreFields = [
+      'framework_adherence_score',
+      'executive_readiness_score',
+      'content_clarity_score',
+      'business_impact_score',
+      'overall_score'
     ]
 
-    for (const dimension of requiredDimensions) {
-      if (!(dimension in response.dimension_scores)) {
-        throw new Error(`Missing dimension score: ${dimension}`)
-      }
-
-      const dimScore = response.dimension_scores[dimension as keyof typeof response.dimension_scores]
-      if (typeof dimScore.score !== 'number' || dimScore.score < 0 || dimScore.score > 100) {
-        throw new Error(`Invalid score for ${dimension}: ${dimScore.score}`)
+    for (const field of scoreFields) {
+      const score = response[field as keyof typeof response]
+      if (typeof score !== 'number' || score < 0 || score > 100) {
+        throw new Error(`Invalid score for ${field}: ${score}`)
       }
     }
 
@@ -327,12 +326,12 @@ export class ValidationResponseParser {
    * Convert raw response to ContentAnalysisResult
    */
   private convertToContentAnalysisResult(response: RawValidationResponse): ContentAnalysisResult {
-    // Convert dimension scores
+    // Convert dimension scores from simplified structure
     const dimensionScores: ValidationDimensions = {
-      frameworkAdherence: response.dimension_scores.framework_adherence.score,
-      executiveReadiness: response.dimension_scores.executive_readiness.score,
-      contentClarity: response.dimension_scores.content_clarity.score,
-      businessImpact: response.dimension_scores.business_impact.score
+      frameworkAdherence: response.framework_adherence_score || 70,
+      executiveReadiness: response.executive_readiness_score || 70,
+      contentClarity: response.content_clarity_score || 70,
+      businessImpact: response.business_impact_score || 70
     }
 
     // Convert simplified issue structure

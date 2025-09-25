@@ -56,7 +56,7 @@ CRITICAL INSTRUCTIONS FOR RESPONSE FORMAT:
 - Start your response with { and end with }
 - Use simple strings only, avoid complex nested structures
 
-Your response MUST be valid JSON in this simplified format:
+Your response MUST be valid JSON in this simplified format (NO ARRAYS):
 {
   "analysis": {
     "content_purpose": "Business transformation proposal",
@@ -64,23 +64,21 @@ Your response MUST be valid JSON in this simplified format:
     "content_type": "transformation",
     "decision_context": "Strategic business decision"
   },
-  "framework_evaluation": [
-    {"framework_id": "scqa", "suitability_score": 85, "rationale": "Good for problem-solving presentations"},
-    {"framework_id": "prep", "suitability_score": 70, "rationale": "Suitable for arguments"},
-    {"framework_id": "star", "suitability_score": 90, "rationale": "Excellent for case studies"},
-    {"framework_id": "pyramid", "suitability_score": 80, "rationale": "Good for executives"},
-    {"framework_id": "comparison", "suitability_score": 75, "rationale": "Good for options analysis"}
-  ],
+  "framework_scores": {
+    "scqa": 85,
+    "prep": 70,
+    "star": 90,
+    "pyramid": 80,
+    "comparison": 75
+  },
   "recommendation": {
     "primary_framework": "star",
     "confidence_score": 90,
-    "rationale": "Best fit for this transformation content",
-    "implementation_notes": "Follow STAR structure throughout"
+    "rationale": "Best fit for this transformation content"
   },
   "current_framework_assessment": {
     "detected_framework": "scqa",
     "alignment_score": 65,
-    "issues": ["Framework mismatch with content", "Missing key elements"],
     "framework_mismatch": true
   }
 }
@@ -175,28 +173,32 @@ export function generateFrameworkComparisonPrompt(
   audienceType: string,
   contentType: string
 ): string {
-  return `You are a presentation framework expert. Compare the effectiveness of different frameworks for this specific scenario:
+  return `You are a presentation framework expert. Analyze this scenario and recommend the optimal framework.
 
 SCENARIO:
 Purpose: ${presentationPurpose}
 Audience: ${audienceType}
 Content Type: ${contentType}
 
-FRAMEWORKS TO COMPARE:
-1. SCQA (Situation-Complication-Question-Answer)
-2. PREP (Point-Reason-Example-Point)
-3. STAR (Situation-Task-Action-Result)
-4. Pyramid (Main Message-Supporting Arguments-Evidence)
-5. Comparison (Options-Criteria-Analysis-Recommendation)
+AVAILABLE FRAMEWORKS:
+- scqa: Situation-Complication-Question-Answer (problem-solving structure)
+- prep: Point-Reason-Example-Point (persuasive argument structure)
+- star: Situation-Task-Action-Result (achievement/case study structure)
+- pyramid: Main Message-Supporting Arguments-Evidence (executive summary structure)
+- comparison: Options-Criteria-Analysis-Recommendation (decision-making structure)
 
-COMPARISON CRITERIA:
-- Audience Alignment: How well does each framework match the audience's needs and preferences?
-- Content Fit: How naturally does the content type align with each framework's structure?
-- Persuasive Power: Which framework would be most persuasive for this specific scenario?
-- Clarity & Flow: Which provides the clearest and most logical flow for this content?
-- Decision Support: Which best supports the intended decision-making process?
+EVALUATION CRITERIA:
+- Audience fit (executive vs technical vs general)
+- Content alignment (transformation, proposal, case study, etc.)
+- Persuasive effectiveness for the intended outcome
+- Clarity and logical flow for the content type
 
-Provide a ranked comparison with scores (0-100) and detailed rationale for each framework.`
+Return your recommendation as JSON only:
+{
+  "recommendation": "framework_name",
+  "confidence": 85,
+  "rationale": "Brief explanation of why this framework is optimal for this scenario"
+}`
 }
 
 /**

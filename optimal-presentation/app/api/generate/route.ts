@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
     const frameworkAnalysisStart = Date.now()
     const analysisConfig = ModelConfigs.analysis()
     logger.llmRequest('FRAMEWORK_AGENT',
-      `Analyzing prompt for optimal framework recommendation: ${body.prompt.substring(0, 100)}...`,
+      `Analyzing prompt for optimal framework recommendation: ${body.prompt}`,
       analysisConfig.model,
       { task: 'framework_analysis', context: analysisContext }
     )
@@ -487,52 +487,38 @@ function generateId(): string {
 }
 
 /**
- * Parse framework recommendation from AI analysis response
+ * Parse framework recommendation from AI analysis JSON response
  */
 function parseFrameworkFromAIAnalysis(aiResponse: string, context: any) {
-  // Import the framework utilities
   const { getFramework } = require('@/lib/validation/supportedFrameworks')
 
-  // Simple parsing - look for framework names in AI response
-  const frameworkNames = ['scqa', 'prep', 'star', 'pyramid', 'comparison']
-  let recommendedFramework = 'scqa' // default
-  let confidence = 75
+  try {
+    // Parse the JSON response from the LLM
+    const analysisResult = JSON.parse(aiResponse.trim())
 
-  const responseText = aiResponse.toLowerCase()
+    // Extract the recommendation
+    const recommendedFramework = analysisResult.recommendation || 'scqa'
+    const confidence = analysisResult.confidence || 75
+    const rationale = analysisResult.rationale || 'AI analysis completed'
 
-  // Look for explicit framework recommendations
-  for (const framework of frameworkNames) {
-    if (responseText.includes(framework)) {
-      recommendedFramework = framework
-      confidence = 85
-      break
+    const framework = getFramework(recommendedFramework)
+
+    return {
+      framework,
+      confidence,
+      rationale,
+      aiAnalysis: aiResponse
     }
-  }
+  } catch (error) {
+    // If JSON parsing fails, log and use default
+    console.error('Failed to parse framework analysis JSON:', error)
 
-  // Look for patterns that suggest specific frameworks
-  if (responseText.includes('situation') && responseText.includes('complication')) {
-    recommendedFramework = 'scqa'
-    confidence = 90
-  } else if (responseText.includes('point') && responseText.includes('reason')) {
-    recommendedFramework = 'prep'
-    confidence = 90
-  } else if (responseText.includes('situation') && responseText.includes('action')) {
-    recommendedFramework = 'star'
-    confidence = 90
-  } else if (responseText.includes('conclusion') && responseText.includes('support')) {
-    recommendedFramework = 'pyramid'
-    confidence = 90
-  } else if (responseText.includes('compare') || responseText.includes('criteria')) {
-    recommendedFramework = 'comparison'
-    confidence = 90
-  }
-
-  const framework = getFramework(recommendedFramework)
-
-  return {
-    framework,
-    confidence,
-    rationale: `AI analysis recommended ${framework.name} framework based on content analysis`,
-    aiAnalysis: aiResponse
+    const framework = getFramework('scqa')
+    return {
+      framework,
+      confidence: 70,
+      rationale: 'Default framework due to analysis parsing error',
+      aiAnalysis: aiResponse
+    }
   }
 }

@@ -113,6 +113,25 @@ export class FrameworkAnalyzer {
   }
 
   /**
+   * Convert simplified JSON structure to expected FrameworkAnalysisResult format
+   */
+  private convertSimplifiedResult(simplified: any): any {
+    // Convert framework_scores object to framework_evaluation array
+    const framework_evaluation = Object.entries(simplified.framework_scores || {}).map(([framework_id, score]) => ({
+      framework_id,
+      suitability_score: score as number,
+      rationale: `Score: ${score}`
+    }))
+
+    return {
+      ...simplified,
+      framework_evaluation,
+      // Keep framework_scores for backward compatibility
+      framework_scores: simplified.framework_scores
+    }
+  }
+
+  /**
    * Parse LLM response into structured result
    */
   private parseAnalysisResponse(responseText: string): FrameworkAnalysisResult {
@@ -145,12 +164,14 @@ export class FrameworkAnalyzer {
       // Try robust JSON parsing with multiple fallback strategies
       let result = this.tryMultipleParsingStrategies(jsonStr)
 
-      // Validate required fields
-      if (!result.analysis || !result.framework_evaluation || !result.recommendation) {
+      // Validate required fields for simplified structure
+      if (!result.analysis || !result.framework_scores || !result.recommendation) {
         throw new Error('Missing required fields in analysis result')
       }
 
-      return result as FrameworkAnalysisResult
+      // Convert simplified structure to expected format
+      const convertedResult = this.convertSimplifiedResult(result)
+      return convertedResult as FrameworkAnalysisResult
 
     } catch (parseError) {
       console.error('Failed to parse framework analysis response:', parseError)

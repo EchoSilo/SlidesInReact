@@ -81,28 +81,19 @@ ABSOLUTE CRITICAL REQUIREMENTS:
 3. Your response MUST start with { and end with }
 4. Keep all text short and simple
 
-REQUIRED JSON FORMAT (copy this structure exactly):
+REQUIRED JSON FORMAT (simple structure, NO nested objects in arrays):
 {
-  "dimension_scores": {
-    "framework_adherence": {"score": 85, "rationale": "Good framework alignment"},
-    "executive_readiness": {"score": 78, "rationale": "Suitable for executives"},
-    "content_clarity": {"score": 82, "rationale": "Clear and understandable"},
-    "business_impact": {"score": 75, "rationale": "Strong business value"}
-  },
+  "framework_adherence_score": 85,
+  "executive_readiness_score": 78,
+  "content_clarity_score": 82,
+  "business_impact_score": 75,
   "overall_score": 80,
   "quality_level": "good",
   "primary_issue": "framework structure needs improvement",
   "issue_severity": "minor",
-  "issue_fix": "adjust slide flow to better match framework",
   "primary_recommendation": "improve executive summary clarity",
-  "recommendation_rationale": "better alignment with executive needs",
-  "recommendation_impact": "higher engagement and decision support",
-  "framework_assessment": {
-    "current_framework_fit": 75,
-    "alternative_framework": "pyramid",
-    "switch_rationale": "Better for executives",
-    "framework_confidence": 80
-  }
+  "framework_fit_score": 75,
+  "alternative_framework": "pyramid"
 }
 
 Be thorough, specific, and actionable in your analysis. Focus on practical improvements that will enhance the presentation's effectiveness for the target audience.`
