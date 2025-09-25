@@ -12,85 +12,32 @@ export function generateFrameworkAnalysisPrompt(
   presentation: PresentationData,
   context: GenerationRequest
 ): string {
-  const frameworkDescriptions = Object.values(SUPPORTED_FRAMEWORKS)
-    .map(framework => formatFrameworkForPrompt(framework))
-    .join('\n\n')
+  return `Analyze this presentation and return ONLY this JSON format:
 
-  return `You are an expert presentation strategist and framework analyst. Your task is to analyze a presentation and recommend the optimal structural framework.
-
-AVAILABLE FRAMEWORKS:
-${frameworkDescriptions}
-
-PRESENTATION ANALYSIS TASK:
-Analyze the provided presentation content and determine:
-1. What is the primary purpose and goal of this presentation?
-2. Who is the target audience and what are their needs?
-3. What type of content and messaging is being presented?
-4. Which framework would be most effective for this specific content and context?
-
-ANALYSIS CRITERIA:
-- Content Purpose: Is this solving a problem, showcasing results, making an argument, or comparing options?
-- Audience Needs: What does the audience need to understand, decide, or do?
-- Information Flow: How should information be structured for maximum impact?
-- Decision Context: What decisions or actions should result from this presentation?
-
-CURRENT PRESENTATION DATA:
-Title: ${presentation.title}
-Subtitle: ${presentation.subtitle}
-Description: ${presentation.description}
-Target Audience: ${presentation.metadata.target_audience}
-Presentation Type: ${presentation.metadata.presentation_type}
-Slide Count: ${presentation.metadata.slide_count}
-
-SLIDE CONTENT SUMMARY:
-${generateSlideContentSummary(presentation)}
-
-GENERATION CONTEXT:
-Original Prompt: "${context.prompt}"
-Intended Tone: ${context.tone}
-Expected Audience: ${context.audience || 'Not specified'}
-
-CRITICAL INSTRUCTIONS FOR RESPONSE FORMAT:
-- You MUST respond with ONLY valid JSON
-- NO markdown, NO explanations, NO text before or after the JSON
-- Start your response with { and end with }
-- Use simple strings only, avoid complex nested structures
-
-Your response MUST be valid JSON in this simplified format (NO ARRAYS):
 {
-  "analysis": {
-    "content_purpose": "Business transformation proposal",
-    "audience_needs": "Executive decision support",
-    "content_type": "transformation",
-    "decision_context": "Strategic business decision"
-  },
   "framework_scores": {
-    "scqa": 85,
-    "prep": 70,
+    "scqa": 75,
+    "prep": 80,
     "star": 90,
-    "pyramid": 80,
-    "comparison": 75
+    "pyramid": 85,
+    "comparison": 70
   },
   "recommendation": {
     "primary_framework": "star",
     "confidence_score": 90,
-    "rationale": "Best fit for this transformation content"
-  },
-  "current_framework_assessment": {
-    "detected_framework": "scqa",
-    "alignment_score": 65,
-    "framework_mismatch": true
+    "rationale": "Best framework for this content"
   }
 }
 
-EVALUATION GUIDELINES:
-- Score frameworks 0-100 based on suitability for this specific content
-- Consider audience preferences (executives prefer Pyramid, technical teams may prefer SCQA)
-- Factor in content complexity and decision urgency
-- Evaluate current structure alignment with detected patterns
-- Provide actionable implementation guidance
+Presentation: ${presentation.title}
+Type: ${presentation.metadata.presentation_type}
+Audience: ${context.audience || 'Business audience'}
 
-Be thorough but concise. Focus on practical framework selection that will maximize presentation effectiveness.`
+Score each framework (0-100) based on fit.
+
+CRITICAL: Return ONLY the JSON above, NO markdown, NO code blocks, NO arrays, NO explanations.
+DO NOT return "analysis", "framework_evaluation", "current_framework_assessment" or any complex structures.
+Your response MUST start with { and end with }.`
 }
 
 /**

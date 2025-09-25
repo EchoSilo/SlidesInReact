@@ -38,19 +38,24 @@ export class OutlineGenerator {
       const prompt = this.createOutlinePrompt(request, framework)
 
       // Get model configuration for outline generation
-      // Need more tokens for complete outline generation
-      const modelConfig = {
-        model: 'claude-3-haiku-20240307',
-        maxTokens: 2500, // Increased from 1024 to handle full outline
-        temperature: 0.3
-      }
+      const modelConfig = ModelConfigs.generation()
 
+      // Log the actual request being sent to the LLM
       if (this.logger) {
         this.logger.llmRequest(
           'OUTLINE_GENERATION',
-          `Generating presentation outline for: ${request.prompt.substring(0, 100)}...`,
+          prompt, // Pass the full prompt, not a truncated description
           modelConfig.model,
-          { task: 'outline_generation', framework: framework.name }
+          {
+            task: 'outline_generation',
+            framework: framework.name,
+            user_prompt: request.prompt,
+            request_config: {
+              model: modelConfig.model,
+              max_tokens: modelConfig.maxTokens,
+              temperature: modelConfig.temperature
+            }
+          }
         )
       }
 

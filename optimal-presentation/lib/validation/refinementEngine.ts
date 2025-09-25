@@ -16,6 +16,7 @@ import {
 } from './refinementPrompts'
 import { ContentRegenerator, RegenerationResult } from './contentRegenerator'
 import { ValidationFeedback } from './feedbackToPromptConverter'
+import { ModelConfigs } from '@/lib/model-config'
 
 /**
  * Refinement round result interface
@@ -111,14 +112,15 @@ export class RefinementEngine {
   constructor(apiKey: string, config: Partial<RefinementConfig> = {}) {
     this.apiKey = apiKey
     // Set default configuration
+    const refinementConfig = ModelConfigs.refinement()
     this.config = {
       maxRefinementRounds: 3,
       targetQualityScore: 80,
       minConfidenceThreshold: 70,
       includeMinorIssues: true,
-      model: 'claude-3-haiku-20240307',
-      temperature: 0.3,
-      maxTokens: 4000,
+      model: refinementConfig.model,
+      temperature: refinementConfig.temperature,
+      maxTokens: refinementConfig.maxTokens,
       minimumImprovement: 2,
       maxQualityRegression: 5,
       enableRollback: true,
@@ -662,9 +664,7 @@ export const DEFAULT_REFINEMENT_CONFIG: RefinementConfig = {
   targetQualityScore: 80,
   minConfidenceThreshold: 70,
   includeMinorIssues: true,
-  model: 'claude-3-haiku-20240307',
-  temperature: 0.3,
-  maxTokens: 4000,
+  ...ModelConfigs.refinement(),
   minimumImprovement: 2,
   maxQualityRegression: 5,
   enableRollback: true,

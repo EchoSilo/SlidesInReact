@@ -16,6 +16,7 @@ import {
   RefreshCw,
   AlertTriangle
 } from 'lucide-react'
+import { SONNET_4_MODEL } from '@/lib/model-config'
 
 interface ApiConnectionStatusProps {
   compact?: boolean
@@ -70,7 +71,7 @@ export function ApiConnectionStatus({ compact = false, showManagement = false }:
 
   const getStatusText = () => {
     if (isValidating) return 'Validating...'
-    if (isConnected) return 'Connected to Claude API'
+    if (isConnected) return `Connected to ${SONNET_4_MODEL}`
     if (error) return error
     if (!hasApiKey) return 'API key not configured'
     return 'Disconnected'

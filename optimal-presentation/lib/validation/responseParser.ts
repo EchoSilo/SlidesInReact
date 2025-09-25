@@ -14,54 +14,24 @@ import {
 } from './contentAnalysis'
 
 /**
- * Raw LLM response interface for validation analysis
+ * Raw LLM response interface for simplified validation analysis
  */
 export interface RawValidationResponse {
-  dimension_scores: {
-    framework_adherence: DimensionScore
-    executive_readiness: DimensionScore
-    content_clarity: DimensionScore
-    business_impact: DimensionScore
-  }
+  // Simplified dimension scores (no nested objects)
+  framework_adherence_score: number
+  executive_readiness_score: number
+  content_clarity_score: number
+  business_impact_score: number
   overall_score: number
   quality_level: string
   primary_issue: string
   issue_severity: string
-  issue_fix: string
   primary_recommendation: string
-  recommendation_rationale: string
-  recommendation_impact: string
-  framework_assessment: {
-    current_framework_fit: number
-    alternative_framework: string | null
-    switch_rationale: string
-    framework_confidence: number
-  }
-  progress_assessment?: {
-    score_improvement: number
-    issues_resolved: string[]
-    remaining_priorities: string[]
-    refinement_effectiveness: string
-    next_round_focus: string
-  }
+  framework_fit_score?: number
+  alternative_framework?: string
 }
 
-interface DimensionScore {
-  score: number
-  rationale: string
-  strengths: string[]
-  weaknesses: string[]
-}
-
-interface RawValidationIssue {
-  type: string
-  severity: string
-  title: string
-  description: string
-  affected_slides: string[]
-  suggested_fix: string
-  confidence: number
-}
+// Simplified interfaces removed - using direct field access now
 
 interface RawRecommendation {
   priority: string
@@ -151,47 +121,22 @@ export class ValidationResponseParser {
         throw new Error('No valid JSON fragment found')
       },
 
-      // Strategy 4: Extract key sections and rebuild for validation response
+      // Strategy 4: Extract key sections and rebuild for simplified validation response
       () => {
         const extractedScores = this.extractScoresSafely(jsonStr)
 
         return {
-          dimension_scores: {
-            framework_adherence: {
-              score: extractedScores.framework_adherence || 70,
-              rationale: "Extracted from partial response",
-              strengths: [],
-              weaknesses: []
-            },
-            executive_readiness: {
-              score: extractedScores.executive_readiness || 70,
-              rationale: "Extracted from partial response",
-              strengths: [],
-              weaknesses: []
-            },
-            content_clarity: {
-              score: extractedScores.content_clarity || 70,
-              rationale: "Extracted from partial response",
-              strengths: [],
-              weaknesses: []
-            },
-            business_impact: {
-              score: extractedScores.business_impact || 70,
-              rationale: "Extracted from partial response",
-              strengths: [],
-              weaknesses: []
-            }
-          },
+          framework_adherence_score: extractedScores.framework_adherence || 70,
+          executive_readiness_score: extractedScores.executive_readiness || 70,
+          content_clarity_score: extractedScores.content_clarity || 70,
+          business_impact_score: extractedScores.business_impact || 70,
           overall_score: extractedScores.overall || 70,
           quality_level: "acceptable",
-          issues: [],
-          recommendations: [],
-          framework_assessment: {
-            current_framework_fit: 70,
-            alternative_framework: null,
-            switch_rationale: "Standard assessment",
-            framework_confidence: 70
-          }
+          primary_issue: "Extracted from partial response",
+          issue_severity: "minor",
+          primary_recommendation: "Review and improve content",
+          framework_fit_score: 70,
+          alternative_framework: null
         }
       }
     ]
@@ -377,43 +322,37 @@ export class ValidationResponseParser {
       },
       dimensionDetails: {
         frameworkAdherence: {
-          score: response.dimension_scores.framework_adherence.score,
-          rationale: response.dimension_scores.framework_adherence.rationale,
-          strengths: response.dimension_scores.framework_adherence.strengths,
-          weaknesses: response.dimension_scores.framework_adherence.weaknesses
+          score: response.framework_adherence_score || 70,
+          rationale: response.primary_issue || 'Standard assessment',
+          strengths: [],
+          weaknesses: []
         },
         executiveReadiness: {
-          score: response.dimension_scores.executive_readiness.score,
-          rationale: response.dimension_scores.executive_readiness.rationale,
-          strengths: response.dimension_scores.executive_readiness.strengths,
-          weaknesses: response.dimension_scores.executive_readiness.weaknesses
+          score: response.executive_readiness_score || 70,
+          rationale: response.primary_issue || 'Standard assessment',
+          strengths: [],
+          weaknesses: []
         },
         contentClarity: {
-          score: response.dimension_scores.content_clarity.score,
-          rationale: response.dimension_scores.content_clarity.rationale,
-          strengths: response.dimension_scores.content_clarity.strengths,
-          weaknesses: response.dimension_scores.content_clarity.weaknesses
+          score: response.content_clarity_score || 70,
+          rationale: response.primary_issue || 'Standard assessment',
+          strengths: [],
+          weaknesses: []
         },
         businessImpact: {
-          score: response.dimension_scores.business_impact.score,
-          rationale: response.dimension_scores.business_impact.rationale,
-          strengths: response.dimension_scores.business_impact.strengths,
-          weaknesses: response.dimension_scores.business_impact.weaknesses
+          score: response.business_impact_score || 70,
+          rationale: response.primary_issue || 'Standard assessment',
+          strengths: [],
+          weaknesses: []
         }
       },
       frameworkAssessment: {
-        currentFrameworkFit: response.framework_assessment.current_framework_fit,
-        alternativeFramework: response.framework_assessment.alternative_framework,
-        switchRationale: response.framework_assessment.switch_rationale,
-        frameworkConfidence: response.framework_assessment.framework_confidence
+        currentFrameworkFit: response.framework_fit_score || 70,
+        alternativeFramework: response.alternative_framework || null,
+        switchRationale: response.primary_recommendation || 'Standard assessment',
+        frameworkConfidence: response.framework_fit_score || 70
       },
-      progressAssessment: response.progress_assessment ? {
-        scoreImprovement: response.progress_assessment.score_improvement,
-        issuesResolved: response.progress_assessment.issues_resolved,
-        remainingPriorities: response.progress_assessment.remaining_priorities,
-        refinementEffectiveness: response.progress_assessment.refinement_effectiveness,
-        nextRoundFocus: response.progress_assessment.next_round_focus
-      } : undefined
+      progressAssessment: undefined // Simplified structure doesn't include progress assessment
     }
   }
 
@@ -565,10 +504,14 @@ export function isValidValidationResponse(obj: any): obj is RawValidationRespons
   return (
     obj &&
     typeof obj === 'object' &&
-    obj.dimension_scores &&
+    typeof obj.framework_adherence_score === 'number' &&
+    typeof obj.executive_readiness_score === 'number' &&
+    typeof obj.content_clarity_score === 'number' &&
+    typeof obj.business_impact_score === 'number' &&
     typeof obj.overall_score === 'number' &&
-    Array.isArray(obj.issues) &&
-    Array.isArray(obj.recommendations)
+    typeof obj.quality_level === 'string' &&
+    typeof obj.primary_issue === 'string' &&
+    typeof obj.primary_recommendation === 'string'
   )
 }
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { CheckCircle, Loader2, AlertCircle, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -69,6 +69,14 @@ export function ProgressModal({
   useEffect(() => {
     // Keep only the last 3-4 messages visible for the sliding effect
     const recentMessages = messages.slice(-4)
+    console.log('🖼️ [ProgressModal] Messages updated:', {
+      totalMessages: messages.length,
+      recentMessages: recentMessages.length,
+      messages: messages,
+      recentMessages: recentMessages,
+      firstMessage: messages[0],
+      lastMessage: messages[messages.length - 1]
+    })
     setVisibleMessages(recentMessages)
   }, [messages])
 
@@ -91,6 +99,11 @@ export function ProgressModal({
             )}
             {title}
           </DialogTitle>
+          <DialogDescription>
+            {error ? "An error occurred during presentation generation" :
+             isComplete ? "Your presentation has been generated successfully" :
+             "Please wait while we generate your presentation"}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 flex flex-col space-y-4 min-h-0">
@@ -115,6 +128,17 @@ export function ProgressModal({
             <div className="flex-1 relative overflow-hidden rounded-lg border border-gray-100 bg-gray-50/50">
               <div className="absolute inset-0 flex flex-col justify-end p-2">
                 <div className="space-y-2">
+                  {console.log('🎨 [ProgressModal] Rendering messages:', {
+                    visibleMessages,
+                    count: visibleMessages.length,
+                    firstMsg: visibleMessages[0],
+                    messages: visibleMessages.map(m => ({
+                      id: m.id,
+                      title: m.title,
+                      desc: m.description,
+                      status: m.status
+                    }))
+                  })}
                   {visibleMessages.map((message, index) => {
                     const Icon = getStatusIcon(message)
                     const isLatest = index === visibleMessages.length - 1

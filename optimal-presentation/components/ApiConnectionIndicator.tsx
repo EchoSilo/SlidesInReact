@@ -3,6 +3,7 @@
 import { useApiConnection } from '@/hooks/useApiConnection'
 import { CheckCircle, XCircle, AlertTriangle, Loader2 } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import { SONNET_4_MODEL } from '@/lib/model-config'
 
 interface ApiConnectionIndicatorProps {
   showText?: boolean
@@ -26,7 +27,7 @@ export function ApiConnectionIndicator({ showText = true }: ApiConnectionIndicat
 
   const getStatusText = () => {
     if (isValidating) return 'Connecting...'
-    if (isConnected) return 'Claude 3'
+    if (isConnected) return 'Sonnet 4'
     if (error) return 'Connection failed'
     if (!hasApiKey) return 'Not configured'
     return 'Disconnected'
@@ -34,7 +35,7 @@ export function ApiConnectionIndicator({ showText = true }: ApiConnectionIndicat
 
   const getTooltipText = () => {
     if (isValidating) return 'Connecting to Claude API...'
-    if (isConnected) return 'Connected to Claude 3 API'
+    if (isConnected) return `Connected to ${SONNET_4_MODEL}`
     if (error) return `Connection failed: ${error}`
     if (!hasApiKey) return 'API key not configured'
     return 'Disconnected from Claude API'

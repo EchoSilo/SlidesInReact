@@ -5,6 +5,7 @@ import { GenerationRequest, GenerationResponse, PresentationData } from '@/lib/t
 import { RefinementEngine } from '@/lib/validation/refinementEngine'
 import { FrameworkAnalyzer, getQuickFrameworkRecommendation } from '@/lib/validation/frameworkAnalysis'
 import { getDefaultAnthropicClient, createAnthropicClient } from '@/lib/anthropic-client'
+import { ModelConfigs } from '@/lib/model-config'
 // import {
 //   simpleLogger,
 //   logGenerationStart,
@@ -241,10 +242,11 @@ export async function POST(request: NextRequest) {
     let llmError: string | undefined
 
     try {
+      const generationConfig = ModelConfigs.generation()
       response = await anthropicClient.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 4096,
-        temperature: 0.7,
+        model: generationConfig.model,
+        max_tokens: generationConfig.maxTokens,
+        temperature: generationConfig.temperature,
         messages: [{
           role: 'user',
           content: prompt
@@ -255,7 +257,7 @@ export async function POST(request: NextRequest) {
 
       // Log successful LLM interaction with full details
       logLLMCall(
-        'claude-3-haiku-20240307',
+        generationConfig.model,
         'presentation-generation',
         prompt,
         response.content[0]?.type === 'text' ? response.content[0].text : 'non-text response',
@@ -263,11 +265,11 @@ export async function POST(request: NextRequest) {
         true,
         undefined,
         response.usage?.input_tokens ? response.usage.input_tokens + (response.usage.output_tokens || 0) : undefined,
-        0.7
+        generationConfig.temperature
       )
 
       presentationLogger.logStep('llm-generation', 'completed', {
-        model: 'claude-3-haiku-20240307',
+        model: generationConfig.model,
         duration_ms: llmDuration,
         tokens_used: response.usage?.input_tokens ? response.usage.input_tokens + (response.usage.output_tokens || 0) : undefined,
         response_length: response.content[0]?.type === 'text' ? response.content[0].text.length : 0
@@ -278,7 +280,7 @@ export async function POST(request: NextRequest) {
       llmError = error instanceof Error ? error.message : 'Unknown LLM error'
 
       logLLMCall(
-        'claude-3-haiku-20240307',
+        generationConfig.model,
         'presentation-generation',
         prompt,
         '',
@@ -286,11 +288,11 @@ export async function POST(request: NextRequest) {
         false,
         llmError,
         undefined,
-        0.7
+        generationConfig.temperature
       )
 
       presentationLogger.logStep('llm-generation', 'failed', {
-        model: 'claude-3-haiku-20240307',
+        model: generationConfig.model,
         duration_ms: llmDuration
       }, llmError)
 

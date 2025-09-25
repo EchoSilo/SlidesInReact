@@ -18,6 +18,7 @@ import {
   logFallbackUsed,
   logValidationComplete
 } from '@/lib/logging/presentationLogger'
+import { ModelConfigs } from '@/lib/model-config'
 
 // Enhanced request interface for streaming
 interface StreamingGenerationRequest extends GenerationRequest {
@@ -312,10 +313,11 @@ async function generatePresentation(
   const anthropic = createAnthropicClient(apiKey)
 
   const llmStartTime = Date.now()
+  const generationConfig = ModelConfigs.generation()
   const response = await anthropic.messages.create({
-    model: 'claude-3-haiku-20240307',
-    max_tokens: 4096,
-    temperature: 0.7,
+    model: generationConfig.model,
+    max_tokens: generationConfig.maxTokens,
+    temperature: generationConfig.temperature,
     messages: [{
       role: 'user',
       content: prompt
@@ -334,7 +336,7 @@ async function generatePresentation(
 
   // Log successful LLM interaction
   logLLMCall(
-    'claude-3-haiku-20240307',
+    generationConfig.model,
     'presentation-generation',
     prompt,
     content.text,
@@ -342,7 +344,7 @@ async function generatePresentation(
     true,
     undefined,
     response.usage?.input_tokens ? response.usage.input_tokens + (response.usage.output_tokens || 0) : undefined,
-    0.7
+    generationConfig.temperature
   )
 
   presentationLogger.logStep('llm-generation', 'completed', {

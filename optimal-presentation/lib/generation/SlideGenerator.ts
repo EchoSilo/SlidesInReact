@@ -63,15 +63,22 @@ export class SlideGenerator {
         // Get model configuration for slide generation
         const modelConfig = ModelConfigs.quickFix() // Using quickFix tokens (1024) for individual slides
 
+        // Log the actual request being sent to the LLM
         if (this.logger) {
           this.logger.llmRequest(
             'SLIDE_GENERATION',
-            `Generating slide ${slideInfo.slideNumber}: ${slideInfo.title}`,
+            prompt, // Pass the full prompt, not a description
             modelConfig.model,
             {
               slide_number: slideInfo.slideNumber,
               slide_type: slideInfo.type,
-              retry_count: retryCount
+              slide_title: slideInfo.title,
+              retry_count: retryCount,
+              request_config: {
+                model: modelConfig.model,
+                max_tokens: modelConfig.maxTokens,
+                temperature: modelConfig.temperature
+              }
             }
           )
         }

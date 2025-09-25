@@ -496,10 +496,11 @@ export class ValidationAgent {
           []
         )
 
+        const quickFixConfig = ModelConfigs.quickFix()
         const response = await this.anthropic.messages.create({
-          model: 'claude-3-haiku-20240307',
-          max_tokens: 4096,
-          temperature: 0.3,
+          model: quickFixConfig.model,
+          max_tokens: quickFixConfig.maxTokens,
+          temperature: quickFixConfig.temperature,
           messages: [{ role: 'user', content: prompt }]
         })
 
@@ -561,9 +562,7 @@ export const DEFAULT_VALIDATION_CONFIG: ValidationConfig = {
   targetQualityScore: 80,
   minConfidenceThreshold: 70,
   includeMinorIssues: true,
-  model: 'claude-3-haiku-20240307',
-  temperature: 0.3,
-  maxTokens: 4000
+  ...ModelConfigs.validation()
 }
 
 /**

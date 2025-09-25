@@ -175,8 +175,8 @@ Required JSON structure:
 }
 
 Each slide needs: id, type, title, layout, content, metadata.
-Common slide types: title, problem, solution, benefits, implementation, conclusion, chart, table.
-Common layouts: title-only, title-content, two-column, three-column, centered, metrics, chart, table, timeline, circle, diamond.
+Example slide types: title, problem, solution, benefits, implementation, conclusion, chart, table, etc
+Example layouts: title-only, title-content, two-column, three-column, centered, metrics, chart, table, timeline, circle, diamond, etc
 
 Return valid JSON only.`
 }

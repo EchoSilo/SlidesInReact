@@ -46,7 +46,49 @@ export default function GeneratePage() {
   const [showProgressModal, setShowProgressModal] = useState(false)
   const progressSimulatorRef = useRef<ProgressSimulator | null>(null)
 
+  // Debug: Log state changes
+  console.log('🔍 [DEBUG] Component state:', {
+    isGenerating,
+    showProgressModal,
+    progressMessagesCount: progressMessages.length,
+    progressMessages: progressMessages.slice(-2) // Last 2 messages
+  })
+
   const { isConnected, hasApiKey } = useApiConnection()
+
+  // Debug: Test progress simulator independently
+  const testProgressSimulator = () => {
+    console.log('🧪 [DEBUG] Testing progress simulator independently')
+    setProgressMessages([])
+    setShowProgressModal(true)
+
+    const testSimulator = new ProgressSimulator(
+      (message) => {
+        console.log('🧪 [DEBUG] Test received message:', message)
+        setProgressMessages(prev => {
+          const filtered = prev.filter(m => m.id !== message.id)
+          const updated = [...filtered, message]
+          console.log('🧪 [DEBUG] Test updated messages:', updated)
+          return updated
+        })
+      },
+      () => {
+        console.log('🧪 [DEBUG] Test progress complete')
+      },
+      (error) => {
+        console.log('🧪 [DEBUG] Test progress error:', error)
+      }
+    )
+
+    testSimulator.start()
+
+    // Clean up after 10 seconds
+    setTimeout(() => {
+      testSimulator.cleanup()
+      setShowProgressModal(false)
+      setProgressMessages([])
+    }, 10000)
+  }
 
   const handleGenerate = async () => {
     if (!prompt.trim() || !presentationType || !presentationScope) {
@@ -406,6 +448,15 @@ export default function GeneratePage() {
                     Configure your API key in Settings to generate presentations
                   </p>
                 )}
+
+                {/* Debug Test Button */}
+                <Button
+                  onClick={testProgressSimulator}
+                  variant="outline"
+                  className="w-full mt-2 text-sm"
+                >
+                  🧪 Test Progress Modal
+                </Button>
               </div>
             </Card>
           </div>

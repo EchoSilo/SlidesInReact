@@ -77,11 +77,13 @@ Assess business value and persuasiveness:
 
 ABSOLUTE CRITICAL REQUIREMENTS:
 1. You MUST respond with ONLY pure JSON
-2. NO markdown, NO code blocks, NO explanations
+2. NO markdown, NO code blocks, NO explanations, NO arrays
 3. Your response MUST start with { and end with }
 4. Keep all text short and simple
+5. DO NOT use arrays [], only simple key-value pairs
+6. DO NOT use nested objects except for the simple structure shown
 
-REQUIRED JSON FORMAT (simple structure, NO nested objects in arrays):
+MANDATORY JSON FORMAT - COPY THIS STRUCTURE EXACTLY:
 {
   "framework_adherence_score": 85,
   "executive_readiness_score": 78,
@@ -95,6 +97,8 @@ REQUIRED JSON FORMAT (simple structure, NO nested objects in arrays):
   "framework_fit_score": 75,
   "alternative_framework": "pyramid"
 }
+
+FORBIDDEN: Do not return "dimension_scores", "recommendations" arrays, "strengths", "weaknesses", or any complex nested structures.
 
 Be thorough, specific, and actionable in your analysis. Focus on practical improvements that will enhance the presentation's effectiveness for the target audience.`
 }

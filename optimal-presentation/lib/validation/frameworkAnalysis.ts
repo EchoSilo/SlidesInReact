@@ -113,21 +113,37 @@ export class FrameworkAnalyzer {
   }
 
   /**
-   * Convert simplified JSON structure to expected FrameworkAnalysisResult format
+   * Convert ultra-simple JSON structure to expected FrameworkAnalysisResult format
    */
-  private convertSimplifiedResult(simplified: any): any {
+  private convertUltraSimpleResult(simple: any): any {
     // Convert framework_scores object to framework_evaluation array
-    const framework_evaluation = Object.entries(simplified.framework_scores || {}).map(([framework_id, score]) => ({
+    const framework_evaluation = Object.entries(simple.framework_scores || {}).map(([framework_id, score]) => ({
       framework_id,
       suitability_score: score as number,
       rationale: `Score: ${score}`
     }))
 
+    // Create minimal analysis section
+    const analysis = {
+      content_purpose: "Presentation analysis",
+      audience_needs: "Business audience needs",
+      content_type: "business",
+      decision_context: "Framework selection"
+    }
+
+    // Create current framework assessment
+    const current_framework_assessment = {
+      detected_framework: "unknown",
+      alignment_score: 70,
+      framework_mismatch: false
+    }
+
     return {
-      ...simplified,
+      analysis,
       framework_evaluation,
-      // Keep framework_scores for backward compatibility
-      framework_scores: simplified.framework_scores
+      framework_scores: simple.framework_scores,
+      recommendation: simple.recommendation,
+      current_framework_assessment
     }
   }
 
@@ -164,13 +180,13 @@ export class FrameworkAnalyzer {
       // Try robust JSON parsing with multiple fallback strategies
       let result = this.tryMultipleParsingStrategies(jsonStr)
 
-      // Validate required fields for simplified structure
-      if (!result.analysis || !result.framework_scores || !result.recommendation) {
+      // Validate required fields for ultra-simple structure
+      if (!result.framework_scores || !result.recommendation) {
         throw new Error('Missing required fields in analysis result')
       }
 
-      // Convert simplified structure to expected format
-      const convertedResult = this.convertSimplifiedResult(result)
+      // Convert ultra-simple structure to expected format
+      const convertedResult = this.convertUltraSimpleResult(result)
       return convertedResult as FrameworkAnalysisResult
 
     } catch (parseError) {
@@ -468,10 +484,11 @@ export class FrameworkAnalyzer {
     try {
       const prompt = generateFrameworkComparisonPrompt(presentationPurpose, audienceType, contentType)
 
+      const analysisConfig = ModelConfigs.analysis()
       const response = await this.anthropic.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 4096,
-        temperature: 0.2,
+        model: analysisConfig.model,
+        max_tokens: analysisConfig.maxTokens,
+        temperature: analysisConfig.temperature,
         messages: [{
           role: 'user',
           content: prompt

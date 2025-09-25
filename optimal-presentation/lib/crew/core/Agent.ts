@@ -36,7 +36,7 @@ export class Agent {
 
         // Log LLM request with agent context
         this.logger.agentLlmRequest('AGENT_LLM_REQUEST', this.config.name, 'crew', this.config.role, prompt, model, {
-          max_tokens: 4000,
+          max_tokens: 8192,
           temperature: 0.1
         })
       } else {
@@ -45,7 +45,7 @@ export class Agent {
 
       const response = await this.client.messages.create({
         model,
-        max_tokens: 4000,
+        max_tokens: 8192,
         temperature: 0.1,
         messages: [{
           role: 'user',

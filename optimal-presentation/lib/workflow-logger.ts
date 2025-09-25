@@ -116,24 +116,50 @@ export class WorkflowLogger {
   }
 
   llmRequest(step: string, prompt: string, model: string, config?: any, agent?: WorkflowLogEntry['agent']) {
-    this.log(step, 'llm_request', `Sending request to ${model}`, {
+    this.log(step, 'llm_request', `📤 SENDING TO LLM: ${model}`, {
       prompt_length: prompt.length,
-      prompt_preview: prompt.substring(0, 200) + '...',
+      prompt_preview: prompt.substring(0, 200) + (prompt.length > 200 ? '...' : ''),
       prompt_full: prompt, // Store complete prompt without truncation
       model,
-      config
+      config,
+      timestamp_sent: new Date().toISOString(),
+      payload_size_kb: Math.round(Buffer.byteLength(prompt, 'utf8') / 1024 * 100) / 100
     }, undefined, agent)
+
+    // Enhanced console logging for debugging
+    console.log(`\n🚀 === LLM REQUEST START === ${step} ===`)
+    console.log(`📤 Model: ${model}`)
+    console.log(`📏 Payload Size: ${Math.round(Buffer.byteLength(prompt, 'utf8') / 1024 * 100) / 100} KB`)
+    console.log(`📝 Full Prompt Being Sent:`)
+    console.log('---START PROMPT---')
+    console.log(prompt)
+    console.log('---END PROMPT---')
+    console.log(`🚀 === LLM REQUEST END === ${step} ===\n`)
   }
 
   llmResponse(step: string, response: any, duration: number, agent?: WorkflowLogEntry['agent']) {
     const responseText = response?.content?.[0]?.text || response?.text || ''
-    this.log(step, 'llm_response', `Received response from LLM`, {
+    this.log(step, 'llm_response', `📥 RECEIVED FROM LLM (${duration}ms)`, {
       response_length: responseText.length,
-      response_preview: responseText.substring(0, 200) + '...',
+      response_preview: responseText.substring(0, 200) + (responseText.length > 200 ? '...' : ''),
       response_full: responseText, // Store complete response without truncation
       tokens_used: response?.usage?.input_tokens ? response.usage.input_tokens + (response.usage.output_tokens || 0) : 'unknown',
+      input_tokens: response?.usage?.input_tokens || 'unknown',
+      output_tokens: response?.usage?.output_tokens || 'unknown',
+      duration_ms: duration,
+      timestamp_received: new Date().toISOString(),
       full_response_object: response // Store complete response object for debugging
     }, duration, agent)
+
+    // Enhanced console logging for debugging
+    console.log(`\n📨 === LLM RESPONSE START === ${step} ===`)
+    console.log(`📥 Duration: ${duration}ms`)
+    console.log(`🔢 Tokens: ${response?.usage?.input_tokens || '?'} in, ${response?.usage?.output_tokens || '?'} out`)
+    console.log(`📝 Full Response Received:`)
+    console.log('---START RESPONSE---')
+    console.log(responseText)
+    console.log('---END RESPONSE---')
+    console.log(`📨 === LLM RESPONSE END === ${step} ===\n`)
   }
 
   // Agent-specific logging methods
@@ -144,27 +170,55 @@ export class WorkflowLogger {
 
   agentLlmRequest(step: string, agentName: string, agentType: WorkflowLogEntry['agent']['type'], agentRole: string, prompt: string, model: string, config?: any) {
     const agent = { name: agentName, type: agentType, role: agentRole }
-    this.log(step, 'llm_request', `Agent ${agentName} sending request to ${model}`, {
+    this.log(step, 'llm_request', `📤 AGENT ${agentName} SENDING TO LLM: ${model}`, {
       prompt_length: prompt.length,
-      prompt_preview: prompt.substring(0, 200) + '...',
+      prompt_preview: prompt.substring(0, 200) + (prompt.length > 200 ? '...' : ''),
       prompt_full: prompt,
       model,
       config,
-      agent_role: agentRole
+      agent_role: agentRole,
+      timestamp_sent: new Date().toISOString(),
+      payload_size_kb: Math.round(Buffer.byteLength(prompt, 'utf8') / 1024 * 100) / 100
     }, undefined, agent)
+
+    // Enhanced console logging for agent requests
+    console.log(`\n🎭🚀 === AGENT LLM REQUEST START === ${agentName} (${step}) ===`)
+    console.log(`🎭 Agent: ${agentName} (${agentRole})`)
+    console.log(`📤 Model: ${model}`)
+    console.log(`📏 Payload Size: ${Math.round(Buffer.byteLength(prompt, 'utf8') / 1024 * 100) / 100} KB`)
+    console.log(`📝 Full Prompt Being Sent:`)
+    console.log('---START AGENT PROMPT---')
+    console.log(prompt)
+    console.log('---END AGENT PROMPT---')
+    console.log(`🎭🚀 === AGENT LLM REQUEST END === ${agentName} (${step}) ===\n`)
   }
 
   agentLlmResponse(step: string, agentName: string, agentType: WorkflowLogEntry['agent']['type'], agentRole: string, response: any, duration: number) {
     const agent = { name: agentName, type: agentType, role: agentRole }
     const responseText = response?.content?.[0]?.text || response?.text || ''
-    this.log(step, 'llm_response', `Agent ${agentName} received response from LLM`, {
+    this.log(step, 'llm_response', `📥 AGENT ${agentName} RECEIVED FROM LLM (${duration}ms)`, {
       response_length: responseText.length,
-      response_preview: responseText.substring(0, 200) + '...',
+      response_preview: responseText.substring(0, 200) + (responseText.length > 200 ? '...' : ''),
       response_full: responseText,
       tokens_used: response?.usage?.input_tokens ? response.usage.input_tokens + (response.usage.output_tokens || 0) : 'unknown',
+      input_tokens: response?.usage?.input_tokens || 'unknown',
+      output_tokens: response?.usage?.output_tokens || 'unknown',
+      duration_ms: duration,
+      timestamp_received: new Date().toISOString(),
       full_response_object: response,
       agent_role: agentRole
     }, duration, agent)
+
+    // Enhanced console logging for agent responses
+    console.log(`\n🎭📨 === AGENT LLM RESPONSE START === ${agentName} (${step}) ===`)
+    console.log(`🎭 Agent: ${agentName} (${agentRole})`)
+    console.log(`📥 Duration: ${duration}ms`)
+    console.log(`🔢 Tokens: ${response?.usage?.input_tokens || '?'} in, ${response?.usage?.output_tokens || '?'} out`)
+    console.log(`📝 Full Response Received:`)
+    console.log('---START AGENT RESPONSE---')
+    console.log(responseText)
+    console.log('---END AGENT RESPONSE---')
+    console.log(`🎭📨 === AGENT LLM RESPONSE END === ${agentName} (${step}) ===\n`)
   }
 
   decision(step: string, decision: string, rationale: string, data?: any) {

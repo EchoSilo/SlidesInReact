@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SlideData } from '@/lib/types'
 import { detectAdvancedCommand, createSlideTemplate, AdvancedCommand } from '@/lib/slideParser'
+import { ModelConfigs } from '@/lib/model-config'
 
 interface EditSlideRequest {
   message: string
@@ -121,6 +122,8 @@ Layout type: {layout}
 User request context: {context}`
 
 async function callClaudeAPI(prompt: string, apiKey: string): Promise<any> {
+  const quickFixConfig = ModelConfigs.quickFix()
+
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -129,8 +132,8 @@ async function callClaudeAPI(prompt: string, apiKey: string): Promise<any> {
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
-      model: 'claude-3-haiku-20240307',
-      max_tokens: 4096,
+      model: quickFixConfig.model,
+      max_tokens: quickFixConfig.maxTokens,
       messages: [
         {
           role: 'user',
