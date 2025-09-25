@@ -142,7 +142,8 @@ export class FrameworkAnalyzer {
 
       console.log('Attempting to parse cleaned JSON:', jsonStr.substring(0, 200) + '...')
 
-      const result = JSON.parse(jsonStr)
+      // Try robust JSON parsing with multiple fallback strategies
+      let result = this.tryMultipleParsingStrategies(jsonStr)
 
       // Validate required fields
       if (!result.analysis || !result.framework_evaluation || !result.recommendation) {
@@ -154,23 +155,159 @@ export class FrameworkAnalyzer {
     } catch (parseError) {
       console.error('Failed to parse framework analysis response:', parseError)
       console.error('Raw response sample:', responseText.substring(0, 500))
+      throw new Error('Failed to parse framework analysis response')
+    }
+  }
 
-      // Try alternative parsing approach
+  /**
+   * Try multiple JSON parsing strategies for malformed JSON
+   */
+  private tryMultipleParsingStrategies(jsonStr: string): any {
+    const strategies = [
+      // Strategy 1: Direct parsing
+      () => JSON.parse(jsonStr),
+
+      // Strategy 2: Fix common array issues
+      () => {
+        let fixed = jsonStr
+          // Fix missing commas in arrays - look for ] followed by space and "
+          .replace(/]\s+"/g, '], "')
+          // Fix missing commas between array elements
+          .replace(/"\s+"/g, '", "')
+          // Fix missing commas between objects in arrays
+          .replace(/}\s+{/g, '}, {')
+          // Fix trailing commas before closing brackets/braces
+          .replace(/,\s*([}\]])/g, '$1')
+          // Fix missing closing brackets/braces at common positions
+          .replace(/([^}\],])\s*$/, '$1}')
+
+        return JSON.parse(fixed)
+      },
+
+      // Strategy 3: Find the largest valid JSON fragment and ensure required fields
+      () => {
+        // Try to find a valid JSON by removing characters from the end
+        for (let i = jsonStr.length - 1; i >= jsonStr.length / 2; i--) {
+          try {
+            const partial = jsonStr.substring(0, i)
+            // Try to close any open braces/brackets
+            const openBraces = (partial.match(/\{/g) || []).length - (partial.match(/\}/g) || []).length
+            const openBrackets = (partial.match(/\[/g) || []).length - (partial.match(/\]/g) || []).length
+
+            let closed = partial
+            for (let j = 0; j < openBrackets; j++) closed += ']'
+            for (let j = 0; j < openBraces; j++) closed += '}'
+
+            const parsed = JSON.parse(closed)
+
+            // Ensure all required fields are present, add defaults if missing
+            if (!parsed.analysis) {
+              parsed.analysis = {
+                content_purpose: "Framework analysis",
+                audience_needs: "Business insights and decision support",
+                content_type: "presentation",
+                decision_context: "Business decision making"
+              }
+            }
+
+            if (!parsed.framework_evaluation || !Array.isArray(parsed.framework_evaluation)) {
+              parsed.framework_evaluation = [{
+                framework_id: "scqa",
+                suitability_score: 70,
+                rationale: "Default framework evaluation",
+                strengths: ["General purpose framework"],
+                weaknesses: ["Not optimized for specific content"]
+              }]
+            }
+
+            if (!parsed.recommendation) {
+              parsed.recommendation = {
+                primary_framework: "scqa",
+                confidence_score: 70,
+                rationale: "Default framework selection",
+                implementation_notes: "Standard implementation approach"
+              }
+            }
+
+            if (!parsed.current_framework_assessment) {
+              parsed.current_framework_assessment = {
+                detected_framework: "scqa",
+                alignment_score: 50,
+                issues: [],
+                framework_mismatch: false
+              }
+            }
+
+            return parsed
+          } catch (e) {
+            continue
+          }
+        }
+        throw new Error('No valid JSON fragment found')
+      },
+
+      // Strategy 4: Extract key sections and rebuild
+      () => {
+        const sections = {
+          analysis: this.extractJsonSection(jsonStr, 'analysis'),
+          framework_evaluation: this.extractJsonSection(jsonStr, 'framework_evaluation'),
+          recommendation: this.extractJsonSection(jsonStr, 'recommendation'),
+          current_framework_assessment: this.extractJsonSection(jsonStr, 'current_framework_assessment')
+        }
+
+        // Build a basic valid structure
+        return {
+          analysis: sections.analysis || {
+            content_purpose: "Framework analysis",
+            audience_needs: "Business insights",
+            content_type: "presentation",
+            decision_context: "Business decision"
+          },
+          framework_evaluation: sections.framework_evaluation || [],
+          recommendation: sections.recommendation || {
+            primary_framework: "scqa",
+            confidence_score: 70,
+            rationale: "Default framework selection",
+            implementation_notes: "Standard implementation"
+          },
+          current_framework_assessment: sections.current_framework_assessment || {
+            detected_framework: "scqa",
+            alignment_score: 50,
+            issues: [],
+            framework_mismatch: false
+          }
+        }
+      }
+    ]
+
+    for (let i = 0; i < strategies.length; i++) {
       try {
-        // Remove everything that's not JSON-like
-        const cleanedResponse = responseText
-          .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove control characters
-          .replace(/^[^{]*/, '') // Remove everything before first {
-          .replace(/[^}]*$/, '') // Remove everything after last }
-
-        const alternativeResult = JSON.parse(cleanedResponse)
-        console.log('Alternative parsing succeeded')
-        return alternativeResult as FrameworkAnalysisResult
-      } catch (altError) {
-        console.error('Alternative parsing also failed:', altError)
-        throw new Error('Failed to parse framework analysis response')
+        const result = strategies[i]()
+        console.log(`Parsing strategy ${i + 1} succeeded`)
+        return result
+      } catch (error) {
+        console.log(`Parsing strategy ${i + 1} failed:`, error.message)
+        if (i === strategies.length - 1) {
+          throw error
+        }
       }
     }
+  }
+
+  /**
+   * Extract a specific JSON section from malformed JSON
+   */
+  private extractJsonSection(jsonStr: string, sectionName: string): any {
+    try {
+      const pattern = new RegExp(`"${sectionName}":\\s*({[^}]*}|\\[[^\\]]*\\])`, 's')
+      const match = jsonStr.match(pattern)
+      if (match && match[1]) {
+        return JSON.parse(match[1])
+      }
+    } catch (e) {
+      // Ignore extraction errors
+    }
+    return null
   }
 
   /**

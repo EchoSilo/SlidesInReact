@@ -25,8 +25,12 @@ export interface RawValidationResponse {
   }
   overall_score: number
   quality_level: string
-  issues: RawValidationIssue[]
-  recommendations: RawRecommendation[]
+  primary_issue: string
+  issue_severity: string
+  issue_fix: string
+  primary_recommendation: string
+  recommendation_rationale: string
+  recommendation_impact: string
   framework_assessment: {
     current_framework_fit: number
     alternative_framework: string | null
@@ -80,8 +84,8 @@ export class ValidationResponseParser {
       // Clean the response text
       const cleanedText = this.cleanResponseText(responseText)
 
-      // Parse JSON
-      const rawResponse: RawValidationResponse = JSON.parse(cleanedText)
+      // Try robust parsing with multiple strategies
+      const rawResponse: RawValidationResponse = this.tryMultipleParsingStrategies(cleanedText)
 
       // Validate the response structure
       this.validateResponseStructure(rawResponse)
@@ -91,11 +95,149 @@ export class ValidationResponseParser {
 
     } catch (error) {
       console.error('Failed to parse validation response:', error)
-      console.error('Raw response:', responseText)
+      console.error('Raw response:', responseText.substring(0, 500))
 
       // Return fallback result
       return this.createFallbackResult(responseText)
     }
+  }
+
+  /**
+   * Try multiple JSON parsing strategies for malformed JSON
+   */
+  private tryMultipleParsingStrategies(jsonStr: string): any {
+    const strategies = [
+      // Strategy 1: Direct parsing
+      () => JSON.parse(jsonStr),
+
+      // Strategy 2: Fix common array and object issues
+      () => {
+        let fixed = jsonStr
+          // Fix missing commas in arrays - look for ] followed by space and "
+          .replace(/]\s+"/g, '], "')
+          // Fix missing commas between array elements
+          .replace(/"\s+"/g, '", "')
+          // Fix missing commas between objects in arrays
+          .replace(/}\s+{/g, '}, {')
+          // Fix trailing commas before closing brackets/braces
+          .replace(/,\s*([}\]])/g, '$1')
+          // Fix missing closing brackets/braces at common positions
+          .replace(/([^}\],])\s*$/, '$1}')
+          // Fix common object key-value separator issues
+          .replace(/"\s*:\s*([^",}\]]+)(?=[,}\]])/g, '": "$1"')
+
+        return JSON.parse(fixed)
+      },
+
+      // Strategy 3: Find the largest valid JSON fragment
+      () => {
+        // Try to find a valid JSON by removing characters from the end
+        for (let i = jsonStr.length - 1; i >= jsonStr.length / 2; i--) {
+          try {
+            const partial = jsonStr.substring(0, i)
+            // Try to close any open braces/brackets
+            const openBraces = (partial.match(/\{/g) || []).length - (partial.match(/\}/g) || []).length
+            const openBrackets = (partial.match(/\[/g) || []).length - (partial.match(/\]/g) || []).length
+
+            let closed = partial
+            for (let j = 0; j < openBrackets; j++) closed += ']'
+            for (let j = 0; j < openBraces; j++) closed += '}'
+
+            return JSON.parse(closed)
+          } catch (e) {
+            continue
+          }
+        }
+        throw new Error('No valid JSON fragment found')
+      },
+
+      // Strategy 4: Extract key sections and rebuild for validation response
+      () => {
+        const extractedScores = this.extractScoresSafely(jsonStr)
+
+        return {
+          dimension_scores: {
+            framework_adherence: {
+              score: extractedScores.framework_adherence || 70,
+              rationale: "Extracted from partial response",
+              strengths: [],
+              weaknesses: []
+            },
+            executive_readiness: {
+              score: extractedScores.executive_readiness || 70,
+              rationale: "Extracted from partial response",
+              strengths: [],
+              weaknesses: []
+            },
+            content_clarity: {
+              score: extractedScores.content_clarity || 70,
+              rationale: "Extracted from partial response",
+              strengths: [],
+              weaknesses: []
+            },
+            business_impact: {
+              score: extractedScores.business_impact || 70,
+              rationale: "Extracted from partial response",
+              strengths: [],
+              weaknesses: []
+            }
+          },
+          overall_score: extractedScores.overall || 70,
+          quality_level: "acceptable",
+          issues: [],
+          recommendations: [],
+          framework_assessment: {
+            current_framework_fit: 70,
+            alternative_framework: null,
+            switch_rationale: "Standard assessment",
+            framework_confidence: 70
+          }
+        }
+      }
+    ]
+
+    for (let i = 0; i < strategies.length; i++) {
+      try {
+        const result = strategies[i]()
+        console.log(`Validation parsing strategy ${i + 1} succeeded`)
+        return result
+      } catch (error) {
+        console.log(`Validation parsing strategy ${i + 1} failed:`, error.message)
+        if (i === strategies.length - 1) {
+          throw error
+        }
+      }
+    }
+  }
+
+  /**
+   * Extract scores from malformed JSON safely
+   */
+  private extractScoresSafely(jsonStr: string): Record<string, number> {
+    const scores: Record<string, number> = {}
+
+    // Look for score patterns
+    const scorePatterns = [
+      /framework_adherence[^}]*score[^0-9]*(\d+)/i,
+      /executive_readiness[^}]*score[^0-9]*(\d+)/i,
+      /content_clarity[^}]*score[^0-9]*(\d+)/i,
+      /business_impact[^}]*score[^0-9]*(\d+)/i,
+      /overall_score[^0-9]*(\d+)/i
+    ]
+
+    const keys = ['framework_adherence', 'executive_readiness', 'content_clarity', 'business_impact', 'overall']
+
+    scorePatterns.forEach((pattern, index) => {
+      const match = jsonStr.match(pattern)
+      if (match && match[1]) {
+        const score = parseInt(match[1])
+        if (score >= 0 && score <= 100) {
+          scores[keys[index]] = score
+        }
+      }
+    })
+
+    return scores
   }
 
   /**
@@ -136,8 +278,8 @@ export class ValidationResponseParser {
       'dimension_scores',
       'overall_score',
       'quality_level',
-      'issues',
-      'recommendations',
+      'primary_issue',
+      'primary_recommendation',
       'framework_assessment'
     ]
 
@@ -171,13 +313,13 @@ export class ValidationResponseParser {
       throw new Error(`Invalid overall score: ${response.overall_score}`)
     }
 
-    // Validate arrays
-    if (!Array.isArray(response.issues)) {
-      throw new Error('Issues must be an array')
+    // Validate simplified fields (no more arrays)
+    if (typeof response.primary_issue !== 'string') {
+      console.warn('Missing primary_issue, using default')
     }
 
-    if (!Array.isArray(response.recommendations)) {
-      throw new Error('Recommendations must be an array')
+    if (typeof response.primary_recommendation !== 'string') {
+      console.warn('Missing primary_recommendation, using default')
     }
   }
 
@@ -193,30 +335,30 @@ export class ValidationResponseParser {
       businessImpact: response.dimension_scores.business_impact.score
     }
 
-    // Convert issues
-    const issues: ValidationIssue[] = response.issues.map(issue => ({
+    // Convert simplified issue structure
+    const issues: ValidationIssue[] = [{
       id: this.generateIssueId(),
-      type: this.parseIssueType(issue.type),
-      severity: this.parseIssueSeverity(issue.severity),
-      title: issue.title,
-      description: issue.description,
-      affectedSlides: issue.affected_slides,
-      suggestedFix: issue.suggested_fix,
-      confidence: Math.max(0, Math.min(100, issue.confidence)),
-      framework_related: this.isFrameworkRelated(issue.type)
-    }))
+      type: this.parseIssueType('framework_structure'),
+      severity: this.parseIssueSeverity(response.issue_severity || 'minor'),
+      title: response.primary_issue || 'Content improvement needed',
+      description: response.primary_issue || 'Content improvement needed',
+      affectedSlides: [],
+      suggestedFix: response.issue_fix || 'Review and improve content',
+      confidence: 75,
+      framework_related: true
+    }]
 
-    // Convert recommendations
-    const recommendations: AnalysisRecommendation[] = response.recommendations.map(rec => ({
+    // Convert simplified recommendation structure
+    const recommendations: AnalysisRecommendation[] = [{
       id: this.generateRecommendationId(),
-      priority: this.parsePriority(rec.priority),
-      category: rec.category,
-      title: rec.recommendation,
-      description: rec.rationale,
-      implementation: rec.implementation,
-      expectedImpact: rec.impact,
+      priority: this.parsePriority('medium'),
+      category: 'content',
+      title: response.primary_recommendation || 'Improve content quality',
+      description: response.recommendation_rationale || 'Enhance presentation effectiveness',
+      implementation: response.issue_fix || 'Review and revise content',
+      expectedImpact: response.recommendation_impact || 'Better audience engagement',
       relatedIssues: []
-    }))
+    }]
 
     // Parse quality level
     const qualityLevel = this.parseQualityLevel(response.quality_level)

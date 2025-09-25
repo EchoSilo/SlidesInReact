@@ -75,68 +75,35 @@ Assess business value and persuasiveness:
 3. **Identify specific issues** with severity levels (Critical/Important/Minor)
 4. **Provide improvement recommendations** prioritized by impact
 
-## Response Format
-Respond with a JSON object following this exact structure:
+ABSOLUTE CRITICAL REQUIREMENTS:
+1. You MUST respond with ONLY pure JSON
+2. NO markdown, NO code blocks, NO explanations
+3. Your response MUST start with { and end with }
+4. Keep all text short and simple
 
-\`\`\`json
+REQUIRED JSON FORMAT (copy this structure exactly):
 {
   "dimension_scores": {
-    "framework_adherence": {
-      "score": 0-100,
-      "rationale": "Detailed explanation of score",
-      "strengths": ["strength 1", "strength 2"],
-      "weaknesses": ["weakness 1", "weakness 2"]
-    },
-    "executive_readiness": {
-      "score": 0-100,
-      "rationale": "Detailed explanation of score",
-      "strengths": ["strength 1", "strength 2"],
-      "weaknesses": ["weakness 1", "weakness 2"]
-    },
-    "content_clarity": {
-      "score": 0-100,
-      "rationale": "Detailed explanation of score",
-      "strengths": ["strength 1", "strength 2"],
-      "weaknesses": ["weakness 1", "weakness 2"]
-    },
-    "business_impact": {
-      "score": 0-100,
-      "rationale": "Detailed explanation of score",
-      "strengths": ["strength 1", "strength 2"],
-      "weaknesses": ["weakness 1", "weakness 2"]
-    }
+    "framework_adherence": {"score": 85, "rationale": "Good framework alignment"},
+    "executive_readiness": {"score": 78, "rationale": "Suitable for executives"},
+    "content_clarity": {"score": 82, "rationale": "Clear and understandable"},
+    "business_impact": {"score": 75, "rationale": "Strong business value"}
   },
-  "overall_score": 0-100,
-  "quality_level": "excellent|good|acceptable|needsImprovement|poor",
-  "issues": [
-    {
-      "type": "framework_structure|executive_format|clarity_language|business_value|consistency|flow_narrative|content_density|audience_level|evidence_support|action_items",
-      "severity": "critical|important|minor",
-      "title": "Brief issue title",
-      "description": "Detailed description of the issue",
-      "affected_slides": ["slide-id-1", "slide-id-2"],
-      "suggested_fix": "Specific recommendation to address this issue",
-      "confidence": 0-100
-    }
-  ],
-  "recommendations": [
-    {
-      "priority": "high|medium|low",
-      "category": "framework|content|structure|presentation",
-      "recommendation": "Specific improvement recommendation",
-      "rationale": "Why this improvement is important",
-      "implementation": "How to implement this change",
-      "impact": "Expected improvement from this change"
-    }
-  ],
+  "overall_score": 80,
+  "quality_level": "good",
+  "primary_issue": "framework structure needs improvement",
+  "issue_severity": "minor",
+  "issue_fix": "adjust slide flow to better match framework",
+  "primary_recommendation": "improve executive summary clarity",
+  "recommendation_rationale": "better alignment with executive needs",
+  "recommendation_impact": "higher engagement and decision support",
   "framework_assessment": {
-    "current_framework_fit": 0-100,
-    "alternative_framework": "scqa|prep|star|pyramid|comparison|null",
-    "switch_rationale": "Why alternative framework would be better (if applicable)",
-    "framework_confidence": 0-100
+    "current_framework_fit": 75,
+    "alternative_framework": "pyramid",
+    "switch_rationale": "Better for executives",
+    "framework_confidence": 80
   }
 }
-\`\`\`
 
 Be thorough, specific, and actionable in your analysis. Focus on practical improvements that will enhance the presentation's effectiveness for the target audience.`
 }

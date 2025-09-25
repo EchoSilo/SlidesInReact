@@ -50,36 +50,37 @@ Original Prompt: "${context.prompt}"
 Intended Tone: ${context.tone}
 Expected Audience: ${context.audience || 'Not specified'}
 
-RESPONSE FORMAT:
-Respond with a JSON object containing:
+CRITICAL INSTRUCTIONS FOR RESPONSE FORMAT:
+- You MUST respond with ONLY valid JSON
+- NO markdown, NO explanations, NO text before or after the JSON
+- Start your response with { and end with }
+- Use simple strings only, avoid complex nested structures
+
+Your response MUST be valid JSON in this simplified format:
 {
   "analysis": {
-    "content_purpose": "Brief description of the presentation's main purpose",
-    "audience_needs": "What the audience needs from this presentation",
-    "content_type": "Type of content being presented (problem-solving, case study, argument, etc.)",
-    "decision_context": "What decisions or actions should result"
+    "content_purpose": "Business transformation proposal",
+    "audience_needs": "Executive decision support",
+    "content_type": "transformation",
+    "decision_context": "Strategic business decision"
   },
   "framework_evaluation": [
-    {
-      "framework_id": "scqa",
-      "suitability_score": 85,
-      "rationale": "Why this framework fits or doesn't fit",
-      "strengths": ["Specific advantages for this content"],
-      "weaknesses": ["Potential limitations"]
-    }
-    // ... evaluate all 5 frameworks
+    {"framework_id": "scqa", "suitability_score": 85, "rationale": "Good for problem-solving presentations"},
+    {"framework_id": "prep", "suitability_score": 70, "rationale": "Suitable for arguments"},
+    {"framework_id": "star", "suitability_score": 90, "rationale": "Excellent for case studies"},
+    {"framework_id": "pyramid", "suitability_score": 80, "rationale": "Good for executives"},
+    {"framework_id": "comparison", "suitability_score": 75, "rationale": "Good for options analysis"}
   ],
   "recommendation": {
     "primary_framework": "star",
-    "confidence_score": 92,
-    "rationale": "Detailed explanation of why this framework is optimal",
-    "alternative_framework": "scqa",
-    "implementation_notes": "Specific guidance for applying this framework"
+    "confidence_score": 90,
+    "rationale": "Best fit for this transformation content",
+    "implementation_notes": "Follow STAR structure throughout"
   },
   "current_framework_assessment": {
     "detected_framework": "scqa",
     "alignment_score": 65,
-    "issues": ["Specific problems with current structure"],
+    "issues": ["Framework mismatch with content", "Missing key elements"],
     "framework_mismatch": true
   }
 }

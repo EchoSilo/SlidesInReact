@@ -21,12 +21,12 @@ export function EditableText({
   placeholder = 'Enter text...',
   multiline = false
 }: EditableTextProps) {
-  const [localText, setLocalText] = useState(text)
+  const [localText, setLocalText] = useState(text || '')
   const [isFocused, setIsFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    setLocalText(text)
+    setLocalText(text || '')
   }, [text])
 
   const handleChange = (value: string) => {
@@ -88,12 +88,12 @@ export function EditableText({
   if (multiline) {
     return (
       <div className={className}>
-        {text.split('\n').map((line, index) => (
+        {(text || '').split('\n').map((line, index) => (
           <p key={index}>{line}</p>
         ))}
       </div>
     )
   }
 
-  return <div className={className}>{text}</div>
+  return <div className={className}>{text || ''}</div>
 }

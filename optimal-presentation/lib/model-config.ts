@@ -4,18 +4,20 @@
  */
 
 export const MODEL_NAME = 'claude-3-haiku-20240307' as const
+export const SONNET_4_MODEL = 'claude-sonnet-4-20250514' as const
 
 export const MODEL_MAX_TOKENS = 4096 as const
+export const SONNET_4_MAX_TOKENS = 64000 as const
 
 /**
  * Token allocation based on use case
  */
 export enum TokenUsage {
-  VALIDATION = 512,           // Connection validation, simple checks
-  ANALYSIS = 1024,           // Framework analysis, content analysis
-  GENERATION = 4096,         // Full content generation
-  REFINEMENT = 4096,         // Content improvement and refinement
-  QUICK_FIX = 1024,          // Single slide fixes
+  VALIDATION = 8192,          // Content validation with Sonnet 4
+  ANALYSIS = 8192,           // Framework analysis with Sonnet 4
+  GENERATION = 4096,         // Full content generation with Haiku
+  REFINEMENT = 4096,         // Content improvement and refinement with Haiku
+  QUICK_FIX = 1024,          // Single slide fixes with Haiku
 }
 
 /**
@@ -30,10 +32,13 @@ export interface ModelConfig {
 /**
  * Get model configuration for specific use case
  */
-export function getModelConfig(usage: TokenUsage, temperature: number = 0.3): ModelConfig {
+export function getModelConfig(usage: TokenUsage, temperature: number = 0.3, useSonnet4: boolean = false): ModelConfig {
+  const model = useSonnet4 ? SONNET_4_MODEL : MODEL_NAME
+  const maxTokens = useSonnet4 ? Math.min(usage, SONNET_4_MAX_TOKENS) : Math.min(usage, MODEL_MAX_TOKENS)
+
   return {
-    model: MODEL_NAME,
-    maxTokens: usage,
+    model,
+    maxTokens,
     temperature
   }
 }
@@ -42,11 +47,11 @@ export function getModelConfig(usage: TokenUsage, temperature: number = 0.3): Mo
  * Common model configurations
  */
 export const ModelConfigs = {
-  validation: (): ModelConfig => getModelConfig(TokenUsage.VALIDATION, 0.1),
-  analysis: (): ModelConfig => getModelConfig(TokenUsage.ANALYSIS, 0.3),
-  generation: (): ModelConfig => getModelConfig(TokenUsage.GENERATION, 0.4),
-  refinement: (): ModelConfig => getModelConfig(TokenUsage.REFINEMENT, 0.4),
-  quickFix: (): ModelConfig => getModelConfig(TokenUsage.QUICK_FIX, 0.3),
+  validation: (): ModelConfig => getModelConfig(TokenUsage.VALIDATION, 0.1, true), // Use Sonnet 4 for validation
+  analysis: (): ModelConfig => getModelConfig(TokenUsage.ANALYSIS, 0.2, true),     // Use Sonnet 4 for analysis
+  generation: (): ModelConfig => getModelConfig(TokenUsage.GENERATION, 0.4),      // Use Haiku for generation
+  refinement: (): ModelConfig => getModelConfig(TokenUsage.REFINEMENT, 0.4),      // Use Haiku for refinement
+  quickFix: (): ModelConfig => getModelConfig(TokenUsage.QUICK_FIX, 0.3),         // Use Haiku for quick fixes
 } as const
 
 /**
