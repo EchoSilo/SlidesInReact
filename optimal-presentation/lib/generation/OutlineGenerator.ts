@@ -182,7 +182,8 @@ Focus on structure and flow, not detailed content.`
         jsonStr = jsonStr.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
       }
 
-      const outline = JSON.parse(jsonStr)
+      // Try multiple parsing strategies
+      const outline = this.tryMultipleParsingStrategies(jsonStr)
 
       // Validate basic structure
       if (!outline.slides || !Array.isArray(outline.slides)) {
@@ -199,6 +200,90 @@ Focus on structure and flow, not detailed content.`
     } catch (error) {
       throw new Error(`Failed to parse outline response: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+  }
+
+  /**
+   * Try multiple JSON parsing strategies for malformed JSON
+   */
+  private tryMultipleParsingStrategies(jsonStr: string): any {
+    const strategies = [
+      // Strategy 1: Direct parsing
+      () => JSON.parse(jsonStr),
+
+      // Strategy 2: Fix common JSON issues
+      () => {
+        let fixed = jsonStr
+          // Fix unquoted property names (common LLM issue)
+          .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
+          // Fix single quotes to double quotes
+          .replace(/'/g, '"')
+          // Fix trailing commas
+          .replace(/,\s*([}\]])/g, '$1')
+          // Fix missing commas between array elements
+          .replace(/"\s+"/g, '", "')
+          // Fix missing commas between objects
+          .replace(/}\s+{/g, '}, {')
+          // Fix common object issues
+          .replace(/([^}\],])\s*$/, '$1}')
+
+        return JSON.parse(fixed)
+      },
+
+      // Strategy 3: Find and fix unclosed braces/brackets
+      () => {
+        // Count open/close braces and brackets
+        const openBraces = (jsonStr.match(/\{/g) || []).length
+        const closeBraces = (jsonStr.match(/\}/g) || []).length
+        const openBrackets = (jsonStr.match(/\[/g) || []).length
+        const closeBrackets = (jsonStr.match(/\]/g) || []).length
+
+        let fixed = jsonStr
+        // Add missing closing brackets/braces
+        for (let i = 0; i < openBrackets - closeBrackets; i++) fixed += ']'
+        for (let i = 0; i < openBraces - closeBraces; i++) fixed += '}'
+
+        return JSON.parse(fixed)
+      },
+
+      // Strategy 4: Extract valid JSON fragment
+      () => {
+        // Try to find the largest valid JSON fragment
+        for (let i = jsonStr.length - 1; i >= jsonStr.length / 2; i--) {
+          try {
+            const partial = jsonStr.substring(0, i)
+            const openBraces = (partial.match(/\{/g) || []).length - (partial.match(/\}/g) || []).length
+            const openBrackets = (partial.match(/\[/g) || []).length - (partial.match(/\]/g) || []).length
+
+            let closed = partial
+            for (let j = 0; j < openBrackets; j++) closed += ']'
+            for (let j = 0; j < openBraces; j++) closed += '}'
+
+            const parsed = JSON.parse(closed)
+            // Ensure it has the minimum required structure
+            if (parsed.slides && Array.isArray(parsed.slides)) {
+              return parsed
+            }
+          } catch (e) {
+            continue
+          }
+        }
+        throw new Error('No valid JSON fragment found')
+      }
+    ]
+
+    let lastError: Error | null = null
+    for (let i = 0; i < strategies.length; i++) {
+      try {
+        const result = strategies[i]()
+        console.log(`Outline parsing strategy ${i + 1} succeeded`)
+        return result
+      } catch (error) {
+        lastError = error as Error
+        console.log(`Outline parsing strategy ${i + 1} failed:`, (error as Error).message)
+      }
+    }
+
+    throw lastError || new Error('All parsing strategies failed')
   }
 
   /**
